@@ -1,16 +1,21 @@
 {
-    "name": "Assistente Agrícola",
-    "short_name": "Agronomia",
-    "description": "Gestão de visitas técnicas e relatórios de campo",
-    "start_url": "index.html",
-    "display": "standalone",
-    "background_color": "#0f141f",
-    "theme_color": "#635bff",
-    "icons": [
-        {
-            "src": "icone.png",
-            "sizes": "192x192",
-            "type": "image/png"
-        }
-    ]
+  "name": "AgroManejo — Gestão de Visitas Técnicas",
+  "short_name": "AgroManejo",
+  "description": "Sistema de gestão de visitas técnicas de campo para agronomia",
+  "start_url": "login.html",
+  "display": "standalone",
+  "background_color": "#050714",
+  "theme_color": "#00e5ff",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2913/2913520.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2913/2913520.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
 }

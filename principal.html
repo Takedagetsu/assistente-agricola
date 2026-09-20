@@ -3,392 +3,408 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Assistente Agrícola — Sistema de Gestão de Campo</title>
-    <link rel="stylesheet" href="./Styles/estilos.css">
+    <title>AgroManejo — Gestão de Visitas Técnicas</title>
     
-    <!-- Leaflet para Mapa -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        :root {
-            --fundo-escuro: #0f141f;
-            --fundo-card: #1a1f2e;
-            --fundo-card-hover: #242b3d;
-            --primaria: #635bff;
-            --primaria-clara: #818cfc;
-            --sucesso: #10b981;
-            --aviso: #f59e0b;
-            --perigo: #ef4444;
-            --texto: #e2e8f0;
-            --texto-claro: #94a3b8;
-            --borda: #2d3748;
-            --raio: 10px;
-            --sombra: 0 4px 20px rgba(0,0,0,0.35);
-        }
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
-        body { background: var(--fundo-escuro); color: var(--texto); min-height: 100vh; }
-        .pagina { display: flex; min-height: 100vh; }
-        .menu-lateral { width: 260px; background: var(--fundo-card); border-right: 1px solid var(--borda); padding: 1.5rem 1rem; position: fixed; height: 100vh; overflow-y: auto; }
-        .menu-logo { text-align: center; margin-bottom: 2rem; }
-        .menu-logo h1 { font-size: 1.3rem; color: var(--primaria); display: flex; align-items: center; justify-content: center; gap: 0.5rem; }
-        .menu-logo p { font-size: 0.8rem; color: var(--texto-claro); margin-top: 0.3rem; }
-        .menu-item { width: 100%; text-align: left; background: transparent; border: none; color: var(--texto); padding: 0.9rem 1rem; margin: 0.25rem 0; border-radius: var(--raio); cursor: pointer; font-size: 0.95rem; display: flex; align-items: center; gap: 0.7rem; transition: all 0.2s; }
-        .menu-item:hover { background: var(--fundo-card-hover); }
-        .menu-item.ativo { background: rgba(99,91,255,0.15); color: var(--primaria); font-weight: 600; }
-        .menu-sair { margin-top: 2rem; border-top: 1px solid var(--borda); padding-top: 1rem; }
-        .conteudo-principal { flex: 1; margin-left: 260px; padding: 2rem; }
-        .cabecalho { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem; }
-        .resumo-linhas { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
-        .card-resumo { background: var(--fundo-card); padding: 1.25rem; border-radius: var(--raio); border: 1px solid var(--borda); }
-        .card-resumo .numero { font-size: 2rem; font-weight: 700; color: var(--primaria); }
-        .aba-conteudo { display: none; }
-        .aba-conteudo.ativa { display: block; animation: aparecer 0.3s ease; }
-        @keyframes aparecer { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .form-bloco { background: var(--fundo-card); padding: 1.5rem; border-radius: var(--raio); border: 1px solid var(--borda); margin-bottom: 1.5rem; }
-        .form-bloco h3 { margin-bottom: 1.2rem; color: var(--primaria); font-size: 1.1rem; }
-        .linha-campos { display: flex; flex-wrap: wrap; gap: 1rem; }
-        .grupo-form { flex: 1; min-width: 200px; }
-        .grupo-form label { display: block; margin-bottom: 0.4rem; font-size: 0.9rem; color: var(--texto-claro); }
-        .campo, input, select, textarea { width: 100%; padding: 0.75rem 1rem; background: var(--fundo-escuro); border: 1px solid var(--borda); border-radius: 6px; color: var(--texto); font-size: 0.95rem; }
-        .campo:focus, input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primaria); box-shadow: 0 0 0 2px rgba(99,91,255,0.25); }
-        .btn-principal, .btn-secundario, .btn-perigo { padding: 0.75rem 1.25rem; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.2s; font-size: 0.95rem; }
-        .btn-principal { background: var(--primaria); color: white; }
-        .btn-principal:hover { background: var(--primaria-clara); transform: translateY(-1px); }
-        .btn-secundario { background: var(--fundo-card-hover); color: var(--texto); border: 1px solid var(--borda); }
-        .btn-secundario:hover { border-color: var(--primaria); }
-        .btn-perigo { background: rgba(239,68,68,0.15); color: var(--perigo); }
-        .btn-perigo:hover { background: rgba(239,68,68,0.25); }
-        .btn-sm { padding: 0.4rem 0.8rem; font-size: 0.85rem; }
-        .lista-cartoes { display: grid; gap: 1rem; }
-        .card-visita { background: var(--fundo-card); padding: 1.25rem; border-radius: var(--raio); border: 1px solid var(--borda); transition: all 0.2s; }
-        .card-visita:hover { border-color: var(--primaria); }
-        .status-badge { padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
-        .status-agendada { background: rgba(245,158,11,0.15); color: #fcd34d; }
-        .status-andamento { background: rgba(99,91,255,0.15); color: var(--primaria-clara); }
-        .status-concluida { background: rgba(16,185,129,0.15); color: #34d399; }
-        .filtros-linha { margin-bottom: 1rem; display: flex; gap: 0.75rem; flex-wrap: wrap; }
-        .aviso { border-radius: var(--raio); padding: 1rem; margin-bottom: 1rem; }
-        .usuario-info { display: flex; align-items: center; gap: 0.75rem; }
-        .usuario-nome { font-weight: 600; font-size: 0.9rem; }
-        .usuario-nivel { font-size: 0.75rem; padding: 0.2rem 0.5rem; background: rgba(99,91,255,0.2); border-radius: 12px; }
-        @media (max-width: 768px) {
-            .menu-lateral { width: 100%; position: relative; height: auto; }
-            .conteudo-principal { margin-left: 0; padding: 1rem; }
-            .pagina { flex-direction: column; }
-        }
-    </style>
-</head>
-<body>
-    <div class="pagina">
-        <!-- Menu Lateral -->
-        <nav class="menu-lateral">
-            <div class="menu-logo">
-                <h1>🌾 Assistente Agrícola</h1>
-                <p>Gestão de Campo</p>
-            </div>
-
-            <button class="menu-item ativo" data-aba="resumo">📊 Resumo</button>
-            <button class="menu-item" data-aba="visitas">📋 Visitas</button>
-            <button class="menu-item" data-aba="clientes">👤 Clientes</button>
-            <button class="menu-item" data-aba="talhoes">🌿 Talhões</button>
-            <button class="menu-item" data-aba="calendario">📅 Calendário</button>
-            <button class="menu-item" data-aba="relatorios">📄 Relatórios</button>
-            <button class="menu-item" data-aba="usuarios">👥 Usuários</button>
-
-            <div class="menu-sair">
-                <div class="usuario-info" id="area-usuario">
-                    <div>
-                        <div class="usuario-nome" id="nome-usuario-logado">Carregando...</div>
-                        <div class="usuario-nivel" id="nivel-usuario-logado">—</div>
-                    </div>
-                </div>
-                <button class="menu-item" id="btn-sair" style="color: var(--perigo); margin-top: 1rem;">🚪 Sair do Sistema</button>
-            </div>
-        </nav>
-
-        <!-- Conteúdo Principal -->
-        <main class="conteudo-principal">
-            <header class="cabecalho">
-                <div>
-                    <h2 id="titulo-aba">Painel de Visão Geral</h2>
-                    <p style="color: var(--texto-claro); font-size: 0.9rem;">Acompanhamento das atividades de campo</p>
-                </div>
-            </header>
-
-            <!-- Resumo / Painel Geral -->
-            <section class="aba-conteudo ativa" id="aba-resumo">
-                <div class="resumo-linhas">
-                    <div class="card-resumo">
-                        <div class="numero" id="qtd-visitas-total">0</div>
-                        <div style="color: var(--texto-claro); font-size: 0.85rem;">Visitas Agendadas</div>
-                    </div>
-                    <div class="card-resumo">
-                        <div class="numero" id="qtd-visitas-andamento" style="color: var(--primaria);">0</div>
-                        <div style="color: var(--texto-claro); font-size: 0.85rem;">Em Andamento</div>
-                    </div>
-                    <div class="card-resumo">
-                        <div class="numero" id="qtd-visitas-concluidas" style="color: var(--sucesso);">0</div>
-                        <div style="color: var(--texto-claro); font-size: 0.85rem;">Concluídas</div>
-                    </div>
-                    <div class="card-resumo">
-                        <div class="numero" id="qtd-clientes" style="color: var(--aviso);">0</div>
-                        <div style="color: var(--texto-claro); font-size: 0.85rem;">Clientes Ativos</div>
-                    </div>
-                </div>
-
-                <h3 style="margin: 2rem 0 1rem 0;">📋 Próximas Visitas</h3>
-                <div id="proximas-visitas" class="lista-cartoes"></div>
-            </section>
-
-            <!-- Visitas Técnicas -->
-            <section class="aba-conteudo" id="aba-visitas">
-                <h2>Gerenciar Visitas Técnicas</h2>
-                <div class="filtros-linha">
-                    <select id="filtro-status" class="campo" style="max-width: 220px;">
-                        <option value="todas">Todas as Visitas</option>
-                        <option value="agendada">Agendadas</option>
-                        <option value="andamento">Em Andamento</option>
-                        <option value="concluida">Concluídas</option>
-                    </select>
-                </div>
-
-                <form id="form-visita" class="form-bloco">
-                    <h3>Agendar Nova Visita</h3>
-                    <div class="linha-campos">
-                        <div class="grupo-form">
-                            <label>Cliente / Propriedade *</label>
-                            <input type="text" id="cliente-visita" required placeholder="Nome do cliente ou fazenda">
-                        </div>
-                        <div class="grupo-form">
-                            <label>Talhão / Área</label>
-                            <select id="talhao-visita">
-                                <option value="">— Selecione ou digite abaixo —</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="linha-campos">
-                        <div class="grupo-form">
-                            <label>Data Prevista *</label>
-                            <input type="date" id="data-visita" required>
-                        </div>
-                        <div class="grupo-form">
-                            <label>Hora</label>
-                            <input type="time" id="hora-visita">
-                        </div>
-                        <div class="grupo-form">
-                            <label>Tipo de Visita</label>
-                            <select id="tipo-visita">
-                                <option value="acompanhamento">Acompanhamento</option>
-                                <option value="amostragem">Amostragem</option>
-                                <option value="diagnostico">Diagnóstico</option>
-                                <option value="recomendacao">Recomendação</option>
-                                <option value="outro">Outro</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="grupo-form">
-                        <label>Observações / Objetivo</label>
-                        <textarea id="observacoes-visita" rows="3" placeholder="Detalhes da visita, objetivos, pontos a verificar..."></textarea>
-                    </div>
-                    
-                    <!-- Localização -->
-                    <div class="form-bloco" style="background: var(--fundo-escuro); margin: 1.5rem 0; padding: 1.25rem;">
-                        <h4 style="margin-bottom: 0.8rem;">📍 Localização da Visita</h4>
-                        
-                        <div style="display: flex; gap: 0.7rem; flex-wrap: wrap; margin-bottom: 1rem;">
-                            <button type="button" id="btn-pegar-localizacao" class="btn-secundario">📡 Usar Minha Localização</button>
-                            <button type="button" id="btn-escolher-mapa" class="btn-secundario">🗺️ Escolher no Mapa</button>
-                            <button type="button" id="btn-limpar-localizacao" class="btn-perigo btn-sm">✖ Limpar</button>
-                        </div>
-                        
-                        <input type="hidden" id="latitude">
-                        <input type="hidden" id="longitude">
-                        <small id="texto-localizacao" style="color: var(--texto-claro); font-size: 0.85rem; display: block; margin-top: 0.5rem;">
-                            Nenhuma localização selecionada
-                        </small>
-                        
-                        <!-- Seletor de Mapa -->
-                        <div id="seletor-mapa" style="display: none; margin-top: 1rem;">
-                            <p style="font-size: 0.85rem; color: var(--texto-claro); margin-bottom: 0.5rem;">
-                                Clique no mapa ou selecione um talhão abaixo:
-                            </p>
-                            <div id="mapa-seletor" style="height: 300px; border-radius: 8px; border: 1px solid var(--borda);"></div>
-                            <div id="lista-talhoes-mapa" style="margin-top: 0.8rem; display: flex; flex-wrap: wrap; gap: 0.5rem;"></div>
-                            <button type="button" id="btn-confirmar-localizacao" class="btn-principal btn-sm" style="margin-top: 0.8rem;">✅ Confirmar Localização</button>
-                        </div>
-                    </div>
-                    
-                    <button type="submit" class="btn-principal">✅ Agendar Visita</button>
-                </form>
-
-                <h3 style="margin-top: 2rem;">Lista de Visitas</h3>
-                <div id="lista-visitas" class="lista-cartoes"></div>
-            </section>
-
-            <!-- Clientes -->
-            <section class="aba-conteudo" id="aba-clientes">
-                <h2>Cadastro de Clientes e Propriedades</h2>
-                
-                <form id="form-cliente" class="form-bloco">
-                    <h3>➕ Cadastrar Novo Cliente</h3>
-                    <div class="linha-campos">
-                        <div class="grupo-form">
-                            <label>Nome Completo / Razão Social *</label>
-                            <input type="text" id="nome-cliente" required placeholder="Nome do cliente">
-                        </div>
-                        <div class="grupo-form">
-                            <label>Propriedade / Fazenda</label>
-                            <input type="text" id="propriedade-cliente" placeholder="Nome da fazenda ou área">
-                        </div>
-                    </div>
-                    <div class="linha-campos">
-                        <div class="grupo-form">
-                            <label>Contato (Telefone/WhatsApp)</label>
-                            <input type="text" id="contato-cliente" placeholder="(DD) 9XXXX-XXXX">
-                        </div>
-                        <div class="grupo-form">
-                            <label>Endereço / Município</label>
-                            <input type="text" id="endereco-cliente" placeholder="Cidade, Estado">
-                        </div>
-                    </div>
-                    <button type="submit" class="btn-principal">✅ Salvar Cliente</button>
-                </form>
-
-                <h3 style="margin-top: 2rem;">Clientes Cadastrados</h3>
-                <div id="lista-clientes" class="lista-cartoes"></div>
-            </section>
-
-            <!-- Talhões -->
-            <section class="aba-conteudo" id="aba-talhoes">
-                <h2>Cadastro de Talhões e Áreas</h2>
-                
-                <form id="form-talhao" class="form-bloco">
-                    <h3>🌿 Cadastrar Talhão</h3>
-                    <div class="linha-campos">
-                        <div class="grupo-form">
-                            <label>Nome / Identificação *</label>
-                            <input type="text" id="nome-talhao" required placeholder="Talhão 1, Área Norte, etc.">
-                        </div>
-                        <div class="grupo-form">
-                            <label>Área (hectares)</label>
-                            <input type="number" step="0.01" id="area-talhao" placeholder="Ex: 12.5">
-                        </div>
-                    </div>
-                    <div class="linha-campos">
-                        <div class="grupo-form">
-                            <label>Cultura / Espécie</label>
-                            <input type="text" id="cultura-talhao" placeholder="Soja, Milho, Café, Pastagem...">
-                        </div>
-                        <div class="grupo-form">
-                            <label>Proprietário / Cliente</label>
-                            <input type="text" id="cliente-talhao" placeholder="Nome do cliente">
-                        </div>
-                    </div>
-                    <div class="linha-campos">
-                        <div class="grupo-form">
-                            <label>Latitude</label>
-                            <input type="text" id="lat-talhao" placeholder="-15.780000">
-                        </div>
-                        <div class="grupo-form">
-                            <label>Longitude</label>
-                            <input type="text" id="lng-talhao" placeholder="-47.920000">
-                        </div>
-                    </div>
-                    <button type="submit" class="btn-principal">✅ Salvar Talhão</button>
-                </form>
-
-                <h3 style="margin-top: 2rem;">Talhões Cadastrados</h3>
-                <div id="lista-talhoes" class="lista-cartoes"></div>
-            </section>
-
-            <!-- Calendário -->
-            <section class="aba-conteudo" id="aba-calendario">
-                <h2>📅 Calendário de Visitas</h2>
-                <p style="color: var(--texto-claro); margin-bottom: 1.5rem;">Visualize todas as visitas agendadas por mês</p>
-                <div id="calendario-completo"></div>
-            </section>
-
-            <!-- Relatórios -->
-            <section class="aba-conteudo" id="aba-relatorios">
-                <h2>📄 Relatórios e Laudos</h2>
-                
-                <div class="form-bloco">
-                    <h3>Gerar Relatório de Atividades</h3>
-                    <div class="linha-campos">
-                        <div class="grupo-form">
-                            <label>Data Início</label>
-                            <input type="date" id="relatorio-inicio">
-                        </div>
-                        <div class="grupo-form">
-                            <label>Data Fim</label>
-                            <input type="date" id="relatorio-fim">
-                        </div>
-                    </div>
-                    <button id="btn-gerar-pdf" class="btn-principal">📊 Gerar Relatório</button>
-                </div>
-
-                <div id="area-relatorio" style="margin-top: 2rem;"></div>
-            </section>
-
-            <!-- Usuários -->
-            <section class="aba-conteudo" id="aba-usuarios">
-                <h2>👥 Gerenciar Usuários do Sistema</h2>
-                
-                <div class="aviso" style="background: rgba(99,91,255,0.1); border: 1px solid var(--primaria);">
-                    <strong>ℹ️ Acesso restrito</strong> — Apenas Administradores podem cadastrar e alterar usuários.
-                </div>
-
-                <form id="form-usuario" class="form-bloco">
-                    <h3>➕ Cadastrar Novo Usuário</h3>
-                    <div class="linha-campos">
-                        <div class="grupo-form">
-                            <label>Nome Completo *</label>
-                            <input type="text" id="nome-usuario" required placeholder="Nome do colaborador">
-                        </div>
-                        <div class="grupo-form">
-                            <label>E-mail (Login) *</label>
-                            <input type="email" id="email-usuario" required placeholder="email@exemplo.com">
-                        </div>
-                    </div>
-                    <div class="linha-campos">
-                        <div class="grupo-form">
-                            <label>Senha *</label>
-                            <input type="password" id="senha-usuario" required placeholder="Mínimo 6 caracteres">
-                        </div>
-                        <div class="grupo-form">
-                            <label>Nível de Acesso</label>
-                            <select id="nivel-usuario">
-                                <option value="administrador">🔑 Administrador — Acesso total</option>
-                                <option value="gerente">📊 Gerente — Visualização de relatórios</option>
-                                <option value="tecnico">🌿 Técnico — Gerencia suas visitas</option>
-                            </select>
-                        </div>
-                    </div>
-                    <button type="submit" class="btn-principal">✅ Criar Usuário</button>
-                </form>
-
-                <h3 style="margin-top: 2rem;">Usuários Ativos</h3>
-                <div id="lista-usuarios" class="lista-cartoes"></div>
-            </section>
-        </main>
-    </div>
-
-    <!-- Firebase -->
+    <!-- Firebase → SEMPRE primeiro! -->
     <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore-compat.js"></script>
-    <script src="firebase-config.js"></script>
-
-    <!-- Leaflet Mapa -->
+    
+    <!-- Leaflet / Mapa -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Nosso Estilo -->
+    <link rel="stylesheet" href="./Styles/estilos.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 🔹 Cabeçalho -->
+        <header class="cabecalho">
+            <div class="logo-area">
+                <span class="logo-icon">🌾</span>
+                <h1 class="logo-nome">AgroManejo</h1>
+            </div>
+            <div class="usuario-info">
+                <div class="usuario-dados">
+                    <span id="nome-usuario" class="usuario-nome">Carregando...</span>
+                    <span id="email-usuario" class="usuario-email"></span>
+                </div>
+                <button onclick="sairDoSistema()" class="btn-sair">🚪 Sair</button>
+            </div>
+        </header>
 
-    <!-- Módulos do Sistema -->
-    <script src="/js/app.js"></script>
-    <script src="/js/usuarios.js"></script>
-    <script src="/js/clientes.js"></script>
-    <script src="/js/talhoes.js"></script>
-    <script src="/js/visitas.js"></script>
-    <script src="/js/calendario.js"></script>
-    <script src="/js/relatorios.js"></script>
+        <!-- 🔹 Navegação das Abas -->
+        <nav class="navegacao-abas">
+            <button class="aba-btn ativa" data-aba="painel">📊 Painel</button>
+            <button class="aba-btn" data-aba="usuarios">👤 Usuários</button>
+            <button class="aba-btn" data-aba="clientes">🏠 Fazendas</button>
+            <button class="aba-btn" data-aba="talhoes">🌿 Talhões</button>
+            <button class="aba-btn" data-aba="visitas">📅 Visitas</button>
+            <button class="aba-btn" data-aba="calendario">🗓️ Calendário</button>
+            <button class="aba-btn" data-aba="mapa">🗺️ Mapa</button>
+            <button class="aba-btn" data-aba="relatorios">📄 Relatórios</button>
+        </nav>
+
+        <!-- 🔹 Conteúdo das Abas -->
+        <main class="conteudo-principal">
+            
+            <!-- ===== ABA: PAINEL ===== -->
+            <div class="aba-conteudo visivel" id="aba-painel">
+                <h2>Painel de Controle</h2>
+                <div class="cards-estatisticas">
+                    <div class="card-stat">
+                        <h3 id="total-visitas">0</h3>
+                        <p>Total de Visitas</p>
+                    </div>
+                    <div class="card-stat agendada">
+                        <h3 id="visitas-agendadas">0</h3>
+                        <p>⏳ Agendadas</p>
+                    </div>
+                    <div class="card-stat andamento">
+                        <h3 id="visitas-andamento">0</h3>
+                        <p>🚗 Em Andamento</p>
+                    </div>
+                    <div class="card-stat concluida">
+                        <h3 id="visitas-concluidas">0</h3>
+                        <p>✅ Concluídas</p>
+                    </div>
+                </div>
+                <div class="proximas-visitas">
+                    <h3>📌 Próximas Visitas</h3>
+                    <div id="proximas-visitas" class="lista-conteudo">
+                        <p class="texto-vazio">Carregando...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== ABA: USUÁRIOS ===== -->
+            <div class="aba-conteudo" id="aba-usuarios">
+                <div class="cabecalho-secao">
+                    <h2>👤 Gerenciar Usuários</h2>
+                    <button onclick="formUsuario()" class="btn-primario">+ Novo Usuário</button>
+                </div>
+                
+                <!-- Formulário de Cadastro -->
+                <div id="form-usuario" class="form-container oculto">
+                    <h3 id="titulo-form-usuario">Cadastrar Usuário</h3>
+                    <div class="grupo-form">
+                        <label>Nome Completo *</label>
+                        <input type="text" id="u-nome" placeholder="Digite o nome">
+                    </div>
+                    <div class="grupo-form">
+                        <label>E-mail (login) *</label>
+                        <input type="email" id="u-email" placeholder="email@exemplo.com">
+                    </div>
+                    <div class="grupo-form">
+                        <label>Senha * (mínimo 6 caracteres)</label>
+                        <input type="password" id="u-senha" placeholder="••••••">
+                    </div>
+                    <div class="grupo-form">
+                        <label>Perfil de Acesso *</label>
+                        <select id="u-perfil" required>
+                            <option value="">Selecione o perfil</option>
+                            <option value="admin">🔑 Administrador</option>
+                            <option value="tecnico">👨‍🌾 Técnico</option>
+                            <option value="gerente">📊 Gerente</option>
+                        </select>
+                    </div>
+                    <div class="botoes"
+                                        <div class="botoes-form">
+                        <button onclick="salvarUsuario()" class="btn-primario">💾 Salvar</button>
+                        <button onclick="fecharForm('usuario')" class="btn-secundario">Cancelar</button>
+                    </div>
+                </div>
+                
+                <!-- Lista de Usuários -->
+                <div class="lista-registros">
+                    <h3>Usuários Cadastrados</h3>
+                    <div id="lista-usuarios" class="lista-conteudo">
+                        <p class="texto-vazio">Carregando...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== ABA: FAZENDAS / CLIENTES ===== -->
+            <div class="aba-conteudo" id="aba-clientes">
+                <div class="cabecalho-secao">
+                    <h2>🏠 Fazendas / Clientes</h2>
+                    <button onclick="formCliente()" class="btn-primario">+ Nova Fazenda</button>
+                </div>
+                
+                <!-- Busca -->
+                <div class="busca-container">
+                    <input type="text" id="pesq-cliente" placeholder="🔍 Buscar por nome ou proprietário..." oninput="filtrarClientes()">
+                </div>
+                
+                <!-- Formulário -->
+                <div id="form-cliente" class="form-container oculto">
+                    <h3>Cadastrar Fazenda</h3>
+                    <div class="grupo-form">
+                        <label>Nome da Fazenda *</label>
+                        <input type="text" id="c-nome" placeholder="Ex: Fazenda São João">
+                    </div>
+                    <div class="grupo-form">
+                        <label>Proprietário</label>
+                        <input type="text" id="c-proprietario" placeholder="Nome do proprietário">
+                    </div>
+                    <div class="grupo-form">
+                        <label>Cidade / UF</label>
+                        <input type="text" id="c-cidade" placeholder="Cidade — MG">
+                    </div>
+                    <div class="grupo-form">
+                        <label>Telefone</label>
+                        <input type="tel" id="c-telefone" placeholder="(00) 00000-0000">
+                    </div>
+                    <div class="grupo-form">
+                        <label>Observações</label>
+                        <textarea id="c-obs" rows="3" placeholder="Informações adicionais..."></textarea>
+                    </div>
+                    <div class="botoes-form">
+                        <button onclick="salvarCliente()" class="btn-primario">💾 Salvar</button>
+                        <button onclick="fecharForm('cliente')" class="btn-secundario">Cancelar</button>
+                    </div>
+                </div>
+                
+                <!-- Lista -->
+                <div class="lista-registros">
+                    <h3>Lista de Fazendas</h3>
+                    <div id="lista-clientes" class="lista-conteudo">
+                        <p class="texto-vazio">Carregando...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== ABA: TALHÕES ===== -->
+            <div class="aba-conteudo" id="aba-talhoes">
+                <div class="cabecalho-secao">
+                    <h2>🌿 Talhões</h2>
+                    <button onclick="formTalhao()" class="btn-primario">+ Novo Talhão</button>
+                </div>
+                
+                <!-- Formulário -->
+                <div id="form-talhao" class="form-container oculto">
+                    <h3>Cadastrar Talhão</h3>
+                    <div class="grupo-form">
+                        <label>Fazenda / Cliente *</label>
+                        <select id="t-cliente">
+                            <option value="">Selecione...</option>
+                        </select>
+                    </div>
+                    <div class="grupo-form">
+                        <label>Nome / Identificação *</label>
+                        <input type="text" id="t-nome" placeholder="Ex: Talhão 01 — Norte">
+                    </div>
+                    <div class="grupo-form">
+                        <label>Área (hectares)</label>
+                        <input type="number" step="0.01" id="t-area" placeholder="Ex: 25.5">
+                    </div>
+                    <div class="grupo-form">
+                        <label>Cultura</label>
+                        <select id="t-cultura">
+                            <option value="">Selecione...</option>
+                            <option>Soja</option>
+                            <option>Milho</option>
+                            <option>Algodão</option>
+                            <option>Café</option>
+                            <option>Cana-de-Açúcar</option>
+                            <option>Pastagem</option>
+                            <option>Outra</option>
+                        </select>
+                    </div>
+                    <div class="grupo-form">
+                        <label>Variedade / Cultivar</label>
+                        <input type="text" id="t-variedade" placeholder="Ex: BRS 333">
+                    </div>
+                    <div class="botoes-form">
+                        <button onclick="salvarTalhao()" class="btn-primario">💾 Salvar</button>
+                        <button onclick="fecharForm('talhao')" class="btn-secundario">Cancelar</button>
+                    </div>
+                </div>
+                
+                <!-- Lista -->
+                <div class="lista-registros">
+                    <h3>Talhões Cadastrados</h3>
+                    <div id="lista-talhoes" class="lista-conteudo">
+                        <p class="texto-vazio">Carregando...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== ABA: VISITAS ===== -->
+            <div class="aba-conteudo" id="aba-visitas">
+                <div class="cabecalho-secao">
+                    <h2>📅 Visitas Técnicas</h2>
+                    <button onclick="formVisita()" class="btn-primario">+ Agendar Visita</button>
+                </div>
+                
+                <!-- Filtros de Status -->
+                <div class="filtros-lista">
+                    <button class="filtro-btn ativa" data-filtro="todas">Todas</button>
+                    <button class="filtro-btn" data-filtro="agendada">⏳ Agendadas</button>
+                    <button class="filtro-btn" data-filtro="andamento">🚗 Em Andamento</button>
+                    <button class="filtro-btn" data-filtro="concluida">✅ Concluídas</button>
+                </div>
+                
+                <!-- Formulário -->
+                <div id="form-visita" class="form-container oculto">
+                    <h3>Agendar Nova Visita</h3>
+                    <div class="linha-form">
+                        <div class="grupo-form">
+                            <label>Fazenda *</label>
+                            <select id="v-cliente" onchange="atualizarTalhoesSelect()">
+                                <option value="">Selecione...</option>
+                            </select>
+                        </div>
+                        <div class="grupo-form">
+                            <label>Talhão</label>
+                            <select id="v-talhao">
+                                <option value="">Selecione a fazenda primeiro...</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="linha-form">
+                        <div class="grupo-form">
+                            <label>Data *</label>
+                            <input type="date" id="v-data">
+                        </div>
+                        <div class="grupo-form">
+                            <label>Horário</label>
+                            <input type="time" id="v-hora">
+                        </div>
+                    </div>
+                    <div class="grupo-form">
+                        <label>Técnico Responsável</label>
+                        <select id="v-tecnico">
+                            <option value="">Selecione...</option>
+                        </select>
+                    </div>
+                    <div class="grupo-form">
+                        <label>Localização (Geolocalização)</label>
+                        <div class="linha-form">
+                            <input type="text" id="v-lat" placeholder="Latitude" readonly style="flex:1;">
+                            <input type="text" id="v-lng" placeholder="Longitude" readonly style="flex:1;">
+                            <button type="button" onclick="pegarLocalizacaoAtual()" class="btn-secundario" style="white-space:nowrap;">📍 GPS</button>
+                        </div>
+                    </div>
+                    <div class="grupo-form">
+                        <label>Observações / Laudo</label>
+                        <textarea id="v-obs" rows="4" placeholder="Detalhes da visita, observações técnicas, recomendações..."></textarea>
+                    </div>
+                    <div class="botoes-form">
+                        <button onclick="salvarVisita()" class="btn-primario">💾 Agendar</button>
+                        <button onclick="fecharForm('visita')" class="btn-secundario">Cancelar</button>
+                    </div>
+                </div>
+                
+                <!-- Lista -->
+                <div class="lista-registros">
+                    <h3>Visitas</h3>
+                    <div id="lista-visitas" class="lista-conteudo">
+                        <p class="texto-vazio">Carregando...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== ABA: CALENDÁRIO ===== -->
+            <div class="aba-conteudo" id="aba-calendario">
+                <h2>🗓️ Calendário de Visitas</h2>
+                <div class="navegacao-mes">
+                    <button onclick="mesAnterior()" class="btn-secundario">&lt;</button>
+                    <h3 id="mes-atual">Mês Atual</h3>
+                    <button onclick="proximoMes()" class="btn-secundario">&gt;</button>
+                </div>
+                <div class="calendario-grade">
+                    <div class="cabecalho-dias">
+                        <span>Dom</span><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span>
+                    </div>
+                    <div id="corpo-calendario" class="dias-mes"></div>
+                </div>
+                <div class="eventos-data">
+                    <h3 id="eventos-data">Visitas da Data</h3>
+                    <div id="eventos-lista" class="lista-conteudo">
+                        <p class="texto-vazio">Clique em uma data para ver as visitas.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== ABA: MAPA ===== -->
+            <div class="aba-conteudo" id="aba-mapa">
+                <h2>🗺️ Mapa de Visitas</h2>
+                <div class="botoes-mapa">
+                    <button onclick="localizacaoAtual()" class="btn-secundario">📍 Minha Posição</button>
+                    <button onclick="centralizarMapa()" class="btn-secundario">🎯 Ver Todos</button>
+                </div>
+                <div id="mapa" class="container-mapa"></div>
+                <div class="lista-pontos-mapa">
+                    <h3>Locais Cadastrados</h3>
+                    <div id="lista-pontos-mapa" class="lista-conteudo">
+                        <p class="texto-vazio">Carregando...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== ABA: RELATÓRIOS ===== -->
+            <div class="aba-conteudo" id="aba-relatorios">
+                <h2>📄 Relatórios</h2>
+                
+                <div class="tipo-relatorio">
+                    <button onclick="gerarRelatorioCompleto()" class="btn-primario">📋 Relatório Completo</button>
+                    <button onclick="mostrarFiltroPeriodo()" class="btn-secundario">📅 Por Período</button>
+                    <button onclick="mostrarFiltroCliente()" class="btn-secundario">🏠 Por Fazenda</button>
+                </div>
+                
+                <!-- Filtro Período -->
+                <div id="filtro-periodo" class="form-container oculto">
+                    <h3>Filtrar por Período</h3>
+                    <div class="linha-form">
+                        <div class="grupo-form">
+                            <label>Data Inicial</label>
+                            <input type="date" id="r-inicio">
+                        </div>
+                        <div class="grupo-form">
+                            <label>Data Final</label>
+                            <input type="date" id="r-fim">
+                        </div>
+                    </div>
+                    <div class="botoes-form">
+                        <button onclick="gerarRelatorioPeriodo()" class="btn-primario">🔍 Gerar</button>
+                        <button onclick="fecharFiltro('periodo')" class="btn-secundario">Cancelar</button>
+                    </div>
+                </div>
+                
+                <!-- Filtro Cliente -->
+                <div id="filtro-cliente" class="form-container oculto">
+                    <h3>Filtrar por Fazenda</h3>
+                    <div class="grupo-form">
+                        <label>Selecione a Fazenda</label>
+                        <select id="r-cliente">
+                            <option value="">Carregando...</option>
+                        </select>
+                    </div>
+                    <div class="botoes-form">
+                        <button onclick="gerarRelatorioCliente()" class="btn-primario">🔍 Gerar</button>
+                        <button onclick="fecharFiltro('cliente')" class="btn-secundario">Cancelar</button>
+                    </div>
+                </div>
+                
+                <!-- Área do Relatório Gerado -->
+                <div id="area-relatorio" class="relatorio-gerado oculto">
+                    <div class="cabecalho-relatorio">
+                        <h3 id="titulo-relatorio">Relatório</h3>
+                        <div class="botoes-relatorio">
+                            <button onclick="imprimirRelatorio()" class="btn-primario">🖨️ Imprimir / Salvar PDF</button>
+                            <button onclick="fecharRelatorio()" class="btn-secundario">✖ Fechar</button>
+                        </div>
+                    </div>
+                    <div id="conteudo-relatorio"></div>
+                </div>
+            </div>
+            
+        </main>
+    </div>
+
+    <!-- Nosso Código -->
+    <script src="js/app.js"></script>
 </body>
 </html>
