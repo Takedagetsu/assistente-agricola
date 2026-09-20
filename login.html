@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login — Assistente Agrícola</title>
+    <link rel="stylesheet" href="./Styles/estilos.css">
+    
+    <!-- Firebase — BIBLIOTECAS PRIMEIRO -->
+    <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore-compat.js"></script>
+</head>
+<body class="pag-login">
+    <div class="caixa-login">
+        <h1>🌾 Assistente Agrícola</h1>
+        <p class="subtitulo">Acesso ao Sistema de Gestão de Campo</p>
+        
+        <form id="form-login">
+            <div class="grupo-form">
+                <label for="email">E-mail</label>
+                <input type="email" id="email" placeholder="admin@agromanejo.com" required autocomplete="email">
+            </div>
+            
+            <div class="grupo-form">
+                <label for="senha">Senha</label>
+                <input type="password" id="senha" placeholder="••••••••" required autocomplete="current-password">
+            </div>
+            
+            <div id="mensagem-erro" class="mensagem-erro"></div>
+            
+            <button type="submit" class="btn-principal btn-login">Entrar</button>
+        </form>
+    </div>
+
+    <!-- CONFIGURAÇÃO — SEMPRE DEPOIS DAS BIBLIOTECAS -->
+    <script src="/js/firebase-config.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const form = document.getElementById('form-login');
+            const erroEl = document.getElementById('mensagem-erro');
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                erroEl.textContent = '🔄 Entrando...';
+                
+                const email = document.getElementById('email').value.trim();
+                const senha = document.getElementById('senha').value;
+
+                if (!window.FIREBASE_AUTH) {
+                    erroEl.textContent = '❌ Arquivo firebase-config.js não encontrado';
+                    return;
+                }
+
+                const res = await FIREBASE_AUTH.login(email, senha);
+                
+                if (res.ok) {
+                    erroEl.textContent = '✅ Sucesso! Redirecionando...';
+                    setTimeout(() => window.location.href = 'principal.html', 600);
+                } else {
+                    erroEl.textContent = '❌ ' + res.mensagem;
+                }
+            });
+        });
+    </script>
+</body>
+</html>
