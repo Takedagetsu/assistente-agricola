@@ -1,834 +1,1076 @@
-// ==============================================
-// AGROMANEJO — Versão Atualizada ✅
-// Correções: Perfis corretos + Exclusão com aviso
-// ==============================================
+// ============================================
+// 🌿 SAFRATECH — JavaScript Completo + Atualizado
+// ✅ Opção de localização manual adicionada!
+// ============================================
+// ============================================
+// 🌿 SAFRATECH — Import do Firebase
+// ============================================
 
-console.log('✅ Sistema carregado!');
+import { db, auth } from './config/firebase-config.js';
 
-// ========== FIREBASE CONFIG ==========
-const firebaseConfig = {
-    apiKey: "AIzaSyAOZSFIQquhdQi1Lk8Gq1dUjzd6pxn0wSE",
-    authDomain: "agromanejo-22dff.firebaseapp.com",
-    projectId: "agromanejo-22dff",
-    storageBucket: "agromanejo-22dff.firebasestorage.app",
-    messagingSenderId: "31965036380",
-    appId: "1:31965036380:web:16582b60640fad20ad8b99",
-    measurementId: "G-VM9FENPQN3"
+// Disponibilizar globalmente (para manter compatibilidade com funções existentes)
+window.db = db;
+window.auth = auth;
+
+console.log('✅ App.js carregado com Firebase disponível!');
+
+// ===== VERIFICAÇÃO DE LOGIN =====
+if (!window.location.pathname.includes('login.html')) {
+    const logado = localStorage.getItem('safratech_logado');
+    if (logado !== 'sim') {
+        window.location.href = 'login.html';
+    }
+}
+
+// ===== DADOS INICIAIS =====
+function inicializarDados() {
+    if (!localStorage.getItem('safratech_fazendas')) {
+        localStorage.setItem('safratech_fazendas', JSON.stringify([]));
+    }
+    if (!localStorage.getItem('safratech_talhoes')) {
+        localStorage.setItem('safratech_talhoes', JSON.stringify([]));
+    }
+    if (!localStorage.getItem('safratech_visitas')) {
+        localStorage.setItem('safratech_visitas', JSON.stringify([]));
+    }
+    if (!localStorage.getItem('safratech_usuarios')) {
+        const usuarios = [
+            { id: 1, nome: 'Administrador', email: 'admin@safratech.com', senha: '123456', perfil: 'Administrador', telefone: '', status: 'ativo' }
+        ];
+        localStorage.setItem('safratech_usuarios', JSON.stringify(usuarios));
+    }
+    if (!localStorage.getItem('safratech_log')) {
+        localStorage.setItem('safratech_log', JSON.stringify([]));
+    }
+}
+inicializarDados();
+
+// ===== NAVEGAÇÃO ENTRE ABAS =====
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.menu-item').forEach(botao => {
+        botao.addEventListener('click', () => {
+            const abaId = botao.getAttribute('data-aba');
+            
+            document.querySelectorAll('.menu-item').forEach(b => b.classList.remove('ativo'));
+            botao.classList.add('ativo');
+            
+            document.querySelectorAll('.aba').forEach(aba => aba.classList.remove('ativo'));
+            document.getElementById(abaId).classList.add('ativo');
+            
+            if (abaId === 'dashboard') carregarDashboard();
+            if (abaId === 'fazendas') carregarFazendas();
+            if (abaId === 'talhoes') carregarTalhoes();
+            if (abaId === 'visitas') carregarVisitas();
+            if (abaId === 'calendario') renderizarCalendario();
+            if (abaId === 'usuarios') carregarUsuarios();
+        });
+    });
+
+    // ===== SAIR DO SISTEMA =====
+    const btnSair = document.getElementById('btn-sair');
+    if (btnSair) {
+        btnSair.addEventListener('click', () => {
+            localStorage.removeItem('safratech_logado');
+            localStorage.removeItem('safratech_nome');
+            window.location.href = 'login.html';
+        });
+    }
+
+    // ===== TALHÕES — Botão limpar GPS =====
+    const btnLimparGpsTalhao = document.getElementById('btn-limpar-gps-talhao');
+    if (btnLimparGpsTalhao) btnLimparGpsTalhao.addEventListener('click', () => {
+        document.getElementById('tal-lat').value = '';
+        document.getElementById('tal-lng').value = '';
+        document.getElementById('tal-lat').focus();
+        alert('✅ Campos limpos! Digite a latitude e longitude desejadas.');
+    });
+
+    // ===== VISITAS — Botões de Localização =====
+    const btnGps = document.getElementById('btn-gps');
+    if (btnGps) btnGps.addEventListener('click', () => {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    document.getElementById('vis-lat').value = pos.coords.latitude.toFixed(6);
+                    document.getElementById('vis-lng').value = pos.coords.longitude.toFixed(6);
+                    alert('✅ Localização atual inserida com sucesso!');
+                },
+                () => alert('❌ Não foi possível obter a localização. Tente digitar manualmente.')
+            );
+        } else {
+            alert('❌ Geolocalização não suportada pelo navegador. Digite manualmente.');
+        }
+    });
+
+    const btnLimparGps = document.getElementById('btn-limpar-gps');
+    if (btnLimparGps) btnLimparGps.addEventListener('click', () => {
+        document.getElementById('vis-lat').value = '';
+        document.getElementById('vis-lng').value = '';
+        document.getElementById('vis-lat').focus();
+        alert('✅ Campos limpos! Digite a latitude e longitude desejadas.');
+    });
+
+    // ===== Inicializar aba padrão =====
+    carregarDashboard();
+});
+
+// ===== FUNÇÕES UTILITÁRIAS =====
+function salvarLog(acao, detalhes) {
+    const log = JSON.parse(localStorage.getItem('safratech_log') || '[]');
+    log.unshift({
+        data: new Date().toLocaleString('pt-BR'),
+        usuario: localStorage.getItem('safratech_nome') || 'Administrador',
+        acao,
+        detalhes
+    });
+    localStorage.setItem('safratech_log', JSON.stringify(log));
+}
+
+function fecharTodosModais() {
+    document.querySelectorAll('.form-modal').forEach(modal => modal.classList.add('oculto'));
+}
+
+document.querySelectorAll('.form-modal').forEach(modal => {
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.classList.add('oculto');
+    });
+});
+
+// ===== DASHBOARD =====
+function carregarDashboard() {
+    const fazendas = JSON.parse(localStorage.getItem('safratech_fazendas') || '[]');
+    const talhoes = JSON.parse(localStorage.getItem('safratech_talhoes') || '[]');
+    const visitas = JSON.parse(localStorage.getItem('safratech_visitas') || '[]');
+    const usuarios = JSON.parse(localStorage.getItem('safratech_usuarios') || '[]');
+    
+    const elFazendas = document.getElementById('qtd-fazendas');
+    const elTalhoes = document.getElementById('qtd-talhoes');
+    const elUsuarios = document.getElementById('qtd-usuarios');
+    const elAgendadas = document.getElementById('qtd-agendadas');
+    const elAndamento = document.getElementById('qtd-andamento');
+    const elConcluidas = document.getElementById('qtd-concluidas');
+    
+    if (elFazendas) elFazendas.textContent = fazendas.length;
+    if (elTalhoes) elTalhoes.textContent = talhoes.length;
+    if (elUsuarios) elUsuarios.textContent = usuarios.filter(u => u.status === 'ativo').length;
+    if (elAgendadas) elAgendadas.textContent = visitas.filter(v => v.status === 'agendada').length;
+    if (elAndamento) elAndamento.textContent = visitas.filter(v => v.status === 'andamento').length;
+    if (elConcluidas) elConcluidas.textContent = visitas.filter(v => v.status === 'concluida').length;
+    
+    const listaProx = document.getElementById('lista-proximas');
+    const proximas = visitas
+        .filter(v => v.status !== 'concluida')
+        .sort((a, b) => new Date(a.data) - new Date(b.data))
+        .slice(0, 5);
+    
+    if (!listaProx) return;
+    
+    if (proximas.length === 0) {
+        listaProx.innerHTML = '<p class="vazio">Nenhuma visita agendada</p>';
+    } else {
+        listaProx.innerHTML = proximas.map(v => `
+            <div class="item-lista">
+                <h4>${v.fazendaNome || 'Fazenda não informada'}</h4>
+                <p>📅 ${v.data} às ${v.hora || '--:--'}</p>
+                <p>👤 ${v.tecnico || 'Não informado'}</p>
+                <span style="display:inline-block;padding:4px 8px;border-radius:4px;font-size:12px;background:${
+                    v.status === 'agendada' ? 'rgba(249,115,22,0.1);color:#F97316' :
+                    v.status === 'andamento' ? 'rgba(132,204,22,0.1);color:#84CC16' :
+                    'rgba(148,163,184,0.1);color:#94A3B8'
+                }">${v.status === 'agendada' ? '⏳ Agendada' : v.status === 'andamento' ? '🚗 Em Andamento' : '✅ Concluída'}</span>
+            </div>
+        `).join('');
+    }
+}
+
+// ===== FAZENDAS =====
+let editandoFazenda = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    const btnNovaFazenda = document.getElementById('btn-nova-fazenda');
+    if (btnNovaFazenda) btnNovaFazenda.addEventListener('click', () => {
+        editandoFazenda = null;
+        document.getElementById('titulo-form-fazenda').textContent = 'Nova Fazenda';
+        document.getElementById('form-fazenda').classList.remove('oculto');
+        document.getElementById('faz-nome').value = '';
+        document.getElementById('faz-proprietario').value = '';
+        document.getElementById('faz-cidade').value = '';
+        document.getElementById('faz-telefone').value = '';
+        document.getElementById('faz-endereco').value = '';
+        document.getElementById('faz-obs').value = '';
+    });
+
+    const btnFecharFazenda = document.getElementById('btn-fechar-fazenda');
+    if (btnFecharFazenda) btnFecharFazenda.addEventListener('click', () => {
+        document.getElementById('form-fazenda').classList.add('oculto');
+    });
+
+    const btnSalvarFazenda = document.getElementById('btn-salvar-fazenda');
+    if (btnSalvarFazenda) btnSalvarFazenda.addEventListener('click', salvarFazenda);
+
+    const pesqFazenda = document.getElementById('pesq-fazenda');
+    if (pesqFazenda) pesqFazenda.addEventListener('input', carregarFazendas);
+});
+
+function salvarFazenda() {
+    const nome = document.getElementById('faz-nome').value.trim();
+    if (!nome) { alert('Informe o nome da fazenda!'); return; }
+    
+    const fazendas = JSON.parse(localStorage.getItem('safratech_fazendas') || '[]');
+    
+    if (editandoFazenda) {
+        const idx = fazendas.findIndex(f => f.id === editandoFazenda);
+        fazendas[idx] = {
+            ...fazendas[idx],
+            nome,
+            proprietario: document.getElementById('faz-proprietario').value,
+            cidade: document.getElementById('faz-cidade').value,
+            telefone: document.getElementById('faz-telefone').value,
+            endereco: document.getElementById('faz-endereco').value,
+            obs: document.getElementById('faz-obs').value
+        };
+        salvarLog('Editar Fazenda', `Fazenda: ${nome}`);
+    } else {
+        fazendas.unshift({
+            id: Date.now(),
+            nome,
+            proprietario: document.getElementById('faz-proprietario').value,
+            cidade: document.getElementById('faz-cidade').value,
+            telefone: document.getElementById('faz-telefone').value,
+            endereco: document.getElementById('faz-endereco').value,
+            obs: document.getElementById('faz-obs').value
+        });
+        salvarLog('Nova Fazenda', `Fazenda: ${nome}`);
+    }
+    
+    localStorage.setItem('safratech_fazendas', JSON.stringify(fazendas));
+    document.getElementById('form-fazenda').classList.add('oculto');
+    carregarFazendas();
+    atualizarSelectFazendas();
+}
+
+function carregarFazendas() {
+    const fazendas = JSON.parse(localStorage.getItem('safratech_fazendas') || '[]');
+    const lista = document.getElementById('lista-fazendas');
+    if (!lista) return;
+    
+    const termo = document.getElementById('pesq-fazenda')?.value.toLowerCase() || '';
+    
+    const filtradas = fazendas.filter(f => 
+        f.nome.toLowerCase().includes(termo) || 
+        (f.proprietario && f.proprietario.toLowerCase().includes(termo))
+    );
+    
+    if (filtradas.length === 0) {
+        lista.innerHTML = '<p class="vazio">Nenhuma fazenda cadastrada ainda</p>';
+    } else {
+        lista.innerHTML = filtradas.map(f => `
+            <div class="item-lista">
+                <h4>🏠 ${f.nome}</h4>
+                ${f.proprietario ? `<p>👤 Proprietário: ${f.proprietario}</p>` : ''}
+                ${f.cidade ? `<p>📍 ${f.cidade}</p>` : ''}
+                ${f.telefone ? `<p>📞 ${f.telefone}</p>` : ''}
+                <div class="acoes">
+                    <button onclick="editarFazenda(${f.id})">✏️ Editar</button>
+                    <button onclick="excluirFazenda(${f.id})" style="background:rgba(234,88,12,0.1);color:#FCA58B;border:none;">🗑️ Excluir</button>
+                </div>
+            </div>
+        `).join('');
+    }
+}
+
+window.editarFazenda = function(id) {
+    const fazendas = JSON.parse(localStorage.getItem('safratech_fazendas') || '[]');
+    const f = fazendas.find(x => x.id === id);
+    if (!f) return;
+    
+    editandoFazenda = id;
+    document.getElementById('titulo-form-fazenda').textContent = 'Editar Fazenda';
+    document.getElementById('faz-nome').value = f.nome;
+    document.getElementById('faz-proprietario').value = f.proprietario || '';
+    document.getElementById('faz-cidade').value = f.cidade || '';
+    document.getElementById('faz-telefone').value = f.telefone || '';
+    document.getElementById('faz-endereco').value = f.endereco || '';
+    document.getElementById('faz-obs').value = f.obs || '';
+    document.getElementById('form-fazenda').classList.remove('oculto');
 };
 
-if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
-}
-const auth = firebase.auth();
-const db = firebase.firestore();
+window.excluirFazenda = function(id) {
+    if (!confirm('Tem certeza que deseja excluir esta fazenda?')) return;
+    let fazendas = JSON.parse(localStorage.getItem('safratech_fazendas') || '[]');
+    const nome = fazendas.find(f => f.id === id)?.nome;
+    fazendas = fazendas.filter(f => f.id !== id);
+    localStorage.setItem('safratech_fazendas', JSON.stringify(fazendas));
+    salvarLog('Excluir Fazenda', `Fazenda: ${nome}`);
+    carregarFazendas();
+    atualizarSelectFazendas();
+};
 
-let usuarioAtual = null;
-let mapa = null;
-let marcadores = [];
-let mesReferencia = new Date();
-let dataSelecionada = null;
-let filtroVisitas = 'todas';
-let editarId = null;
-
-// ========== UTILITÁRIOS ==========
-function mostrarToast(mensagem, tipo='sucesso') {
-    const t = document.createElement('div');
-    t.className = `toast ${tipo === 'erro' ? 'erro' : ''}`;
-    t.textContent = mensagem;
-    t.style.cssText = 'position:fixed;bottom:2rem;right:2rem;background:linear-gradient(135deg,#00e5ff,#7b2ffd);color:white;padding:1rem 1.5rem;border-radius:10px;box-shadow:0 5px 20px rgba(0,229,255,.25);z-index:9999;';
-    document.body.appendChild(t);
-    setTimeout(() => t.remove(), 3000);
-}
-function formatoData(d) { return new Date(d).toLocaleDateString('pt-BR'); }
-
-// ========== LOGIN ==========
-async function fazerLogin() {
-    const email = document.getElementById('login-email')?.value;
-    const senha = document.getElementById('login-senha')?.value;
-    const erro = document.getElementById('erro-login');
+function atualizarSelectFazendas() {
+    const fazendas = JSON.parse(localStorage.getItem('safratech_fazendas') || '[]');
+    const opcoes = '<option value="">Selecione uma fazenda...</option>' + 
+        fazendas.map(f => `<option value="${f.id}">${f.nome}</option>`).join('');
     
-    if (!email || !senha) {
-        erro.textContent = 'Preencha todos os campos!';
-        erro.style.display = 'block';
-        return;
-    }
+    const visFazenda = document.getElementById('vis-fazenda');
+    if (visFazenda) visFazenda.innerHTML = opcoes;
     
-    try {
-        await auth.signInWithEmailAndPassword(email, senha);
-        window.location.href = 'principal.html';
-    } catch (e) {
-        erro.textContent = e.message;
-        erro.style.display = 'block';
-        console.error('Erro de login:', e);
-    }
+    const talFazenda = document.getElementById('tal-fazenda');
+    if (talFazenda) talFazenda.innerHTML = opcoes;
+    
+    const relFazenda = document.getElementById('rel-fazenda');
+    if (relFazenda) relFazenda.innerHTML = '<option value="">Todas as Fazendas</option>' + 
+        fazendas.map(f => `<option value="${f.id}">${f.nome}</option>`).join('');
 }
 
-function sairDoSistema() {
-    auth.signOut().then(() => window.location.href = 'login.html');
-}
+// ===== TALHÕES =====
+let editandoTalhao = null;
 
-// ========== INICIALIZAÇÃO PRINCIPAL ==========
-function inicializarInterface() {
-    console.log('📌 Inicializando interface...');
-    
-    document.querySelectorAll('.aba-btn').forEach(btn => btn.classList.remove('ativa'));
-    document.querySelectorAll('.aba-conteudo').forEach(aba => aba.classList.remove('visivel'));
-    
-    const abaPainel = document.querySelector('.aba-btn[data-aba="painel"]');
-    const conteudoPainel = document.getElementById('aba-painel');
-    if (abaPainel) abaPainel.classList.add('ativa');
-    if (conteudoPainel) conteudoPainel.classList.add('visivel');
-    
-    console.log('✅ Interface pronta!');
-}
+document.addEventListener('DOMContentLoaded', function() {
+    const btnNovoTalhao = document.getElementById('btn-novo-talhao');
+    if (btnNovoTalhao) btnNovoTalhao.addEventListener('click', () => {
+        editandoTalhao = null;
+        document.getElementById('titulo-form-talhao').textContent = 'Novo Talhão';
+        document.getElementById('form-talhao').classList.remove('oculto');
+        document.getElementById('tal-fazenda').value = '';
+        document.getElementById('tal-nome').value = '';
+        document.getElementById('tal-area').value = '';
+        document.getElementById('tal-cultura').value = '';
+        document.getElementById('tal-variedade').value = '';
+        document.getElementById('tal-lat').value = '';
+        document.getElementById('tal-lng').value = '';
+        document.getElementById('tal-obs').value = '';
+        atualizarSelectFazendas();
+    });
 
-// ========== VERIFICAR AUTENTICAÇÃO ==========
-auth.onAuthStateChanged(async (user) => {
-    console.log('🔍 Usuário:', user ? user.email : 'Nenhum');
-    
-    if (user && window.location.pathname.includes('login.html')) {
-        window.location.href = 'principal.html';
-        return;
-    }
-    
-    if (!user && !window.location.pathname.includes('login.html')) {
-        if (document.getElementById('login-email')) return;
-        window.location.href = 'login.html';
-        return;
-    }
-    
-    if (user && document.getElementById('nome-usuario')) {
-        usuarioAtual = user;
-        document.getElementById('nome-usuario').textContent = 'Administrador';
-        document.getElementById('email-usuario').textContent = user.email;
-        
-        inicializarInterface();
-        
-        try {
-            await carregarTudo();
-        } catch (e) {
-            console.warn('⚠️ Erro ao carregar dados:', e);
-            mostrarToast('Atenção: alguns dados não puderam ser carregados', 'erro');
-        }
-    }
+    const btnFecharTalhao = document.getElementById('btn-fechar-talhao');
+    if (btnFecharTalhao) btnFecharTalhao.addEventListener('click', () => {
+        document.getElementById('form-talhao').classList.add('oculto');
+    });
+
+    const btnSalvarTalhao = document.getElementById('btn-salvar-talhao');
+    if (btnSalvarTalhao) btnSalvarTalhao.addEventListener('click', salvarTalhao);
+
+    const pesqTalhao = document.getElementById('pesq-talhao');
+    if (pesqTalhao) pesqTalhao.addEventListener('input', carregarTalhoes);
 });
 
-// ========== NAVEGAÇÃO DE ABAS ==========
-document.addEventListener('click', e => {
-    if (e.target.classList.contains('aba-btn')) {
-        document.querySelectorAll('.aba-btn').forEach(b => b.classList.remove('ativa'));
-        document.querySelectorAll('.aba-conteudo').forEach(c => c.classList.remove('visivel'));
-        e.target.classList.add('ativa');
-        const abaId = 'aba-' + e.target.dataset.aba;
-        const alvo = document.getElementById(abaId);
-        if (alvo) alvo.classList.add('visivel');
-        else console.warn('⚠️ Aba não encontrada:', abaId);
-        
-        if (e.target.dataset.aba === 'calendario') setTimeout(renderizarCalendario, 50);
-        if (e.target.dataset.aba === 'mapa') setTimeout(inicializarMapa, 100);
-        if (e.target.dataset.aba === 'visitas') carregarSelectsVisitas();
-        if (e.target.dataset.aba === 'relatorios') carregarSelectRelatorios();
-    }
-    if (e.target.classList.contains('filtro-btn')) {
-        document.querySelectorAll('.filtro-btn').forEach(b => b.classList.remove('ativa'));
-        e.target.classList.add('ativa');
-        filtroVisitas = e.target.dataset.filtro;
-        carregarVisitas();
-    }
-});
-
-// ========== 👤 USUÁRIOS — CORRIGIDO ✅ ==========
-async function salvarUsuario() {
-    const nome = document.getElementById('u-nome')?.value;
-    const email = document.getElementById('u-email')?.value;
-    const senha = document.getElementById('u-senha')?.value;
-    const perfil = document.getElementById('u-perfil')?.value;
+function salvarTalhao() {
+    const fazendaId = document.getElementById('tal-fazenda').value;
+    const nome = document.getElementById('tal-nome').value.trim();
+    if (!fazendaId || !nome) { alert('Selecione a fazenda e informe o nome do talhão!'); return; }
     
-    console.log('📝 Salvando usuário — Perfil selecionado:', perfil);
+    const fazendas = JSON.parse(localStorage.getItem('safratech_fazendas') || '[]');
+    const fazenda = fazendas.find(f => f.id == fazendaId);
+    const talhoes = JSON.parse(localStorage.getItem('safratech_talhoes') || '[]');
     
-    if (!nome || !email || !senha) { 
-        mostrarToast('Preencha TODOS os campos!', 'erro'); 
-        return; 
-    }
-    
-    if (!perfil) {
-        mostrarToast('Selecione o perfil!', 'erro');
-        return;
-    }
-    
-    try {
-        const userCred = await auth.createUserWithEmailAndPassword(email, senha);
-        
-        await db.collection('usuarios').add({ 
-            nome, 
-            email, 
-            perfil,
-            uid: userCred.user.uid,
-            criadoPor: usuarioAtual?.email, 
-            criadoEm: new Date() 
+    if (editandoTalhao) {
+        const idx = talhoes.findIndex(t => t.id === editandoTalhao);
+        talhoes[idx] = {
+            ...talhoes[idx],
+            fazendaId,
+            fazendaNome: fazenda?.nome || 'Desconhecida',
+            nome,
+            area: document.getElementById('tal-area').value,
+            cultura: document.getElementById('tal-cultura').value,
+            variedade: document.getElementById('tal-variedade').value,
+            lat: document.getElementById('tal-lat').value,
+            lng: document.getElementById('tal-lng').value,
+            obs: document.getElementById('tal-obs').value
+        };
+        salvarLog('Editar Talhão', `Talhão: ${nome}`);
+    } else {
+        talhoes.unshift({
+            id: Date.now(),
+            fazendaId,
+            fazendaNome: fazenda?.nome || 'Desconhecida',
+            nome,
+            area: document.getElementById('tal-area').value,
+            cultura: document.getElementById('tal-cultura').value,
+            variedade: document.getElementById('tal-variedade').value,
+            lat: document.getElementById('tal-lat').value,
+            lng: document.getElementById('tal-lng').value,
+            obs: document.getElementById('tal-obs').value
         });
-        
-        const perfilNome = perfil === 'tecnico' ? 'Técnico' : perfil === 'gerente' ? 'Gerente' : 'Administrador';
-        mostrarToast(`✅ Usuário "${nome}" criado como ${perfilNome}! Já pode fazer login!`);
-        fecharForm('usuario');
-        carregarUsuarios();
-        
-    } catch(e) {
-        console.error('❌ Erro:', e.code, e.message);
-        if (e.code === 'auth/email-already-in-use') {
-            mostrarToast('❌ Este e-mail JÁ está cadastrado! Use outro.', 'erro');
-        } else if (e.code === 'auth/weak-password') {
-            mostrarToast('❌ A senha precisa ter pelo MENOS 6 caracteres!', 'erro');
-        } else {
-            mostrarToast('❌ Erro: ' + e.message, 'erro');
-        }
+        salvarLog('Novo Talhão', `Talhão: ${nome} - ${fazenda?.nome}`);
     }
-}
-
-async function carregarUsuarios() {
-    const lista = document.getElementById('lista-usuarios');
-    if (!lista) return;
-    try {
-        const snap = await db.collection('usuarios').get();
-        if (snap.empty) { 
-            lista.innerHTML = '<p class="texto-vazio">Nenhum usuário cadastrado.</p>'; 
-            return; 
-        }
-        lista.innerHTML = snap.docs.map(d => {
-            const u = d.data();
-            const perfilTexto = u.perfil === 'tecnico' ? '👨‍🌾 Técnico' : 
-                               u.perfil === 'gerente' ? '📊 Gerente' : '🔑 Administrador';
-            const corPerfil = u.perfil === 'tecnico' ? '#10b981' : 
-                            u.perfil === 'gerente' ? '#f59e0b' : '#635bff';
-            return `<div class="item-registro">
-                <div>
-                    <strong>${u.nome || '-'}</strong><br>
-                    <span style="font-size:.8rem;color:var(--texto-suave)">${u.email}</span>
-                    <span class="status-etiqueta" style="margin-left:0.5rem;background:${corPerfil};color:white;padding:0.15rem 0.5rem;border-radius:4px;font-size:0.75rem;">
-                        ${perfilTexto}
-                    </span>
-                </div>
-                <div>
-                    <button class="btn-perigo btn-sm" onclick="excluirUsuarioCompleto('${d.id}', '${u.uid || ''}', '${u.email}')">🗑️ Excluir</button>
-                </div>
-            </div>`;
-        }).join('');
-    } catch(e) { 
-        lista.innerHTML = '<p class="texto-vazio">Erro ao carregar.</p>'; 
-    }
-}
-
-// ========== 🗑️ EXCLUIR USUÁRIO COMPLETO ✅ ==========
-async function excluirUsuarioCompleto(docId, uid, email) {
-    if (!confirm(`Tem certeza que deseja excluir este usuário?\n${email}`)) return;
     
-    try {
-        await db.collection('usuarios').doc(docId).delete();
-        
-        const excluido = confirm(
-            '✅ Excluído da lista do sistema!\n\n' +
-            'Para apagar o login também:\n' +
-            '→ Clique em "OK" para abrir o painel do Firebase\n' +
-            '→ Ou "Cancelar" se quiser manter o acesso por enquanto'
-        );
-        
-        if (excluido) {
-            window.open('https://console.firebase.google.com/project/agromanejo-22dff/authentication/users', '_blank');
-            mostrarToast('✅ Abra o Firebase e exclua manualmente o usuário!');
-        } else {
-            mostrarToast('✅ Removido da lista. Login mantido.');
-        }
-        
-        carregarUsuarios();
-        
-    } catch(e) {
-        mostrarToast('❌ Erro: ' + e.message, 'erro');
+    localStorage.setItem('safratech_talhoes', JSON.stringify(talhoes));
+    document.getElementById('form-talhao').classList.add('oculto');
+    carregarTalhoes();
+    atualizarSelectTalhoes();
+}
+
+function carregarTalhoes() {
+    const talhoes = JSON.parse(localStorage.getItem('safratech_talhoes') || '[]');
+    const lista = document.getElementById('lista-talhoes');
+    if (!lista) return;
+    
+    const termo = document.getElementById('pesq-talhao')?.value.toLowerCase() || '';
+    
+    const filtrados = talhoes.filter(t => 
+        t.nome.toLowerCase().includes(termo) || 
+        t.fazendaNome.toLowerCase().includes(termo)
+    );
+    
+    if (filtrados.length === 0) {
+        lista.innerHTML = '<p class="vazio">Nenhum talhão cadastrado ainda</p>';
+    } else {
+        lista.innerHTML = filtrados.map(t => `
+            <div class="item-lista">
+                <h4>🌱 ${t.nome} — ${t.fazendaNome}</h4>
+                ${t.area ? `<p>📐 Área: ${t.area} ha</p>` : ''}
+                ${t.cultura ? `<p>🌾 Cultura: ${t.cultura}${t.variedade ? ` (${t.variedade})` : ''}</p>` : ''}
+                ${t.lat && t.lng ? `<p>📍 ${t.lat}, ${t.lng}</p>` : ''}
+                <div class="acoes">
+                    <button onclick="editarTalhao(${t.id})">✏️ Editar</button>
+                    <button onclick="excluirTalhao(${t.id})" style="background:rgba(234,88,12,0.1);color:#FCA58B;border:none;">🗑️ Excluir</button>
+                </div>
+            </div>
+        `).join('');
     }
 }
 
-function formUsuario() { 
-    const form = document.getElementById('form-usuario');
-    const titulo = document.getElementById('titulo-form-usuario');
-    if (form) form.classList.remove('oculto');
-    if (titulo) titulo.textContent = 'Cadastrar Usuário';
-    editarId = null; 
+window.editarTalhao = function(id) {
+    const talhoes = JSON.parse(localStorage.getItem('safratech_talhoes') || '[]');
+    const t = talhoes.find(x => x.id === id);
+    if (!t) return;
+    
+    editandoTalhao = id;
+    atualizarSelectFazendas();
+    document.getElementById('titulo-form-talhao').textContent = 'Editar Talhão';
+    document.getElementById('tal-fazenda').value = t.fazendaId;
+    document.getElementById('tal-nome').value = t.nome;
+    document.getElementById('tal-area').value = t.area || '';
+    document.getElementById('tal-cultura').value = t.cultura || '';
+    document.getElementById('tal-variedade').value = t.variedade || '';
+    document.getElementById('tal-lat').value = t.lat || '';
+    document.getElementById('tal-lng').value = t.lng || '';
+    document.getElementById('tal-obs').value = t.obs || '';
+    document.getElementById('form-talhao').classList.remove('oculto');
+};
+
+window.excluirTalhao = function(id) {
+    if (!confirm('Tem certeza que deseja excluir este talhão?')) return;
+    let talhoes = JSON.parse(localStorage.getItem('safratech_talhoes') || '[]');
+    const nome = talhoes.find(t => t.id === id)?.nome;
+    talhoes = talhoes.filter(t => t.id !== id);
+    localStorage.setItem('safratech_talhoes', JSON.stringify(talhoes));
+    salvarLog('Excluir Talhão', `Talhão: ${nome}`);
+    carregarTalhoes();
+    atualizarSelectTalhoes();
+};
+
+function atualizarSelectTalhoes() {
+    const talhoes = JSON.parse(localStorage.getItem('safratech_talhoes') || '[]');
+    const opcoes = '<option value="">Selecione o talhão...</option>' + 
+        talhoes.map(t => `<option value="${t.id}">${t.nome} — ${t.fazendaNome}</option>`).join('');
+    
+    const visTalhao = document.getElementById('vis-talhao');
+    if (visTalhao) visTalhao.innerHTML = opcoes;
+    
+    const relTalhao = document.getElementById('rel-talhao');
+    if (relTalhao) relTalhao.innerHTML = '<option value="">Todos os Talhões</option>' + 
+        talhoes.map(t => `<option value="${t.id}">${t.nome} — ${t.fazendaNome}</option>`).join('');
 }
 
-// ========== 🏠 CLIENTES / FAZENDAS ==========
-async function salvarCliente() {
-    const dados = {
-        nome: document.getElementById('c-nome')?.value,
-        proprietario: document.getElementById('c-proprietario')?.value,
-        cidade: document.getElementById('c-cidade')?.value,
-        telefone: document.getElementById('c-telefone')?.value,
-        obs: document.getElementById('c-obs')?.value,
-        criadoPor: usuarioAtual?.email,
-        criadoEm: new Date()
-    };
-    if (!dados.nome) { mostrarToast('Informe o nome da fazenda!', 'erro'); return; }
-    try {
-        await db.collection('clientes').add(dados);
-        mostrarToast('✅ Fazenda salva!');
-        fecharForm('cliente');
-        carregarClientes();
-    } catch(e) { mostrarToast('❌ Erro: ' + e.message, 'erro'); }
-}
+// ===== VISITAS =====
+let editandoVisita = null;
+let filtroAtivo = 'todas';
 
-async function carregarClientes() {
-    const lista = document.getElementById('lista-clientes');
-    if (!lista) return;
-    try {
-        const snap = await db.collection('clientes').orderBy('nome', 'asc').get();
-        window._todosClientes = snap.docs.map(d => ({id:d.id, ...d.data()}));
-        filtrarClientes();
-    } catch(e) { lista.innerHTML = '<p class="texto-vazio">Erro ao carregar.</p>'; }
-}
+document.addEventListener('DOMContentLoaded', function() {
+    const btnNovaVisita = document.getElementById('btn-nova-visita');
+    if (btnNovaVisita) btnNovaVisita.addEventListener('click', () => {
+        editandoVisita = null;
+        document.getElementById('titulo-form-visita').textContent = 'Agendar Nova Visita';
+        document.getElementById('form-visita').classList.remove('oculto');
+        document.getElementById('vis-fazenda').value = '';
+        document.getElementById('vis-talhao').innerHTML = '<option value="">Selecione o talhão...</option>';
+        document.getElementById('vis-data').value = '';
+        document.getElementById('vis-hora').value = '';
+        document.getElementById('vis-tecnico').value = '';
+        document.getElementById('vis-lat').value = '';
+        document.getElementById('vis-lng').value = '';
+        document.getElementById('vis-obs').value = '';
+        atualizarSelectFazendas();
+        atualizarSelectTalhoes();
+    });
 
-function filtrarClientes() {
-    const busca = document.getElementById('pesq-cliente')?.value?.toLowerCase() || '';
-    const lista = document.getElementById('lista-clientes');
-    if (!lista || !window._todosClientes) return;
-    const filtrados = window._todosClientes.filter(c => 
-        (c.nome && c.nome.toLowerCase().includes(busca)) || 
-        (c.proprietario && c.proprietario.toLowerCase().includes(busca))
-    );
-    if (!filtrados.length) { lista.innerHTML = '<p class="texto-vazio">Nenhuma fazenda encontrada.</p>'; return; }
-    lista.innerHTML = filtrados.map(c => `
-        <div class="item-registro">
-            <div><strong>${c.nome}</strong><br><span style="font-size:.8rem;color:var(--texto-suave)">${c.proprietario || ''} • ${c.cidade || ''}</span></div>
-            <div><button class="btn-perigo btn-sm" onclick="excluirItem('clientes','${c.id}')">🗑️</button></div>
-        </div>
-    `).join('');
-}
+    const btnFecharVisita = document.getElementById('btn-fechar-visita');
+    if (btnFecharVisita) btnFecharVisita.addEventListener('click', () => {
+        document.getElementById('form-visita').classList.add('oculto');
+    });
 
-function formCliente() { 
-    const form = document.getElementById('form-cliente');
-    if (form) form.classList.remove('oculto');
-    editarId = null; 
-}
-
-// ========== 🌿 TALHÕES ==========
-async function salvarTalhao() {
-    const dados = {
-        clienteId: document.getElementById('t-cliente')?.value,
-        clienteNome: document.getElementById('t-cliente')?.selectedOptions?.[0]?.text || '',
-        nome: document.getElementById('t-nome')?.value,
-        area: document.getElementById('t-area')?.value,
-        cultura: document.getElementById('t-cultura')?.value,
-        variedade: document.getElementById('t-variedade')?.value,
-        criadoPor: usuarioAtual?.email,
-        criadoEm: new Date()
-    };
-    if (!dados.nome || !dados.clienteId) { mostrarToast('Selecione a fazenda e informe o nome!', 'erro'); return; }
-    try {
-        await db.collection('talhoes').add(dados);
-        mostrarToast('✅ Talhão salvo!');
-        fecharForm('talhao');
-        carregarTalhoes();
-    } catch(e) { mostrarToast('❌ Erro: ' + e.message, 'erro'); }
-}
-
-async function carregarTalhoes() {
-    const lista = document.getElementById('lista-talhoes');
-    const select = document.getElementById('t-cliente');
-    if (!lista) return;
-    try {
-        const snap = await db.collection('talhoes').get();
-        const snapClientes = await db.collection('clientes').orderBy('nome').get();
-        if (select) {
-            select.innerHTML = '<option value="">Selecione...</option>' + 
-                snapClientes.docs.map(d => `<option value="${d.id}">${d.data().nome}</option>`).join('');
+    const visFazenda = document.getElementById('vis-fazenda');
+    if (visFazenda) visFazenda.addEventListener('change', () => {
+        const fazendaId = visFazenda.value;
+        const talhoes = JSON.parse(localStorage.getItem('safratech_talhoes') || '[]');
+        const filtrados = fazendaId ? talhoes.filter(t => t.fazendaId == fazendaId) : talhoes;
+        const visTalhao = document.getElementById('vis-talhao');
+        if (visTalhao) {
+            visTalhao.innerHTML = '<option value="">Selecione o talhão...</option>' + 
+                filtrados.map(t => `<option value="${t.id}">${t.nome}</option>`).join('');
         }
-        if (snap.empty) { lista.innerHTML = '<p class="texto-vazio">Nenhum talhão cadastrado.</p>'; return; }
-        lista.innerHTML = snap.docs.map(d => {
-            const t = d.data();
-            return `<div class="item-registro">
-                <div><strong>${t.nome}</strong><br><span style="font-size:.8rem;color:var(--texto-suave)">${t.clienteNome} • ${t.area}ha • ${t.cultura || ''}</span></div>
-                <div><button class="btn-perigo btn-sm" onclick="excluirItem('talhoes','${d.id}')">🗑️</button></div>
-            </div>`;
-        }).join('');
-    } catch(e) { lista.innerHTML = '<p class="texto-vazio">Erro ao carregar.</p>'; }
-}
+    });
 
-function formTalhao() { 
-    const form = document.getElementById('form-talhao');
-    if (form) form.classList.remove('oculto');
-    editarId = null; 
-}
+    const btnSalvarVisita = document.getElementById('btn-salvar-visita');
+    if (btnSalvarVisita) btnSalvarVisita.addEventListener('click', salvarVisita);
 
-// ========== 📅 VISITAS ==========
-async function carregarSelectsVisitas() {
-    const cSelect = document.getElementById('v-cliente');
-    const tSelect = document.getElementById('v-tecnico');
-    if (!cSelect || !tSelect) return;
-    try {
-        const snapClientes = await db.collection('clientes').orderBy('nome').get();
-        const snapUsuarios = await db.collection('usuarios').get();
-        cSelect.innerHTML = '<option value="">Selecione...</option>' + 
-            snapClientes.docs.map(d => `<option value="${d.id}">${d.data().nome}</option>`).join('');
-        tSelect.innerHTML = '<option value="">Selecione...</option>' + 
-            snapUsuarios.docs.map(d => `<option value="${d.id}">${d.data().nome || d.data().email}</option>`).join('');
-    } catch(e) {}
-}
+    document.querySelectorAll('.filtro-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.filtro-btn').forEach(b => b.classList.remove('ativo'));
+            btn.classList.add('ativo');
+            filtroAtivo = btn.getAttribute('data-filtro');
+            carregarVisitas();
+        });
+    });
+});
 
-async function atualizarTalhoesSelect() {
-    const cliId = document.getElementById('v-cliente')?.value;
-    const tSelect = document.getElementById('v-talhao');
-    if (!tSelect) return;
-    if (!cliId) { tSelect.innerHTML = '<option value="">Selecione um cliente primeiro...</option>'; return; }
-    try {
-        const snap = await db.collection('talhoes').where('clienteId', '==', cliId).get();
-        tSelect.innerHTML = '<option value="">Selecione o talhão...</option>' + 
-            snap.docs.map(d => `<option value="${d.id}">${d.data().nome}</option>`).join('');
-    } catch(e) {}
-}
-
-function pegarLocalizacaoAtual() {
-    if (!navigator.geolocation) { mostrarToast('Geolocalização não suportada', 'erro'); return; }
-    navigator.geolocation.getCurrentPosition(
-        pos => {
-            const lat = document.getElementById('v-lat');
-            const lng = document.getElementById('v-lng');
-            if (lat) lat.value = pos.coords.latitude.toFixed(6);
-            if (lng) lng.value = pos.coords.longitude.toFixed(6);
-            mostrarToast('📍 Localização capturada!');
-        },
-        err => mostrarToast('❌ Erro ao obter localização', 'erro')
-    );
-}
-
-async function salvarVisita() {
-    const dados = {
-        clienteId: document.getElementById('v-cliente')?.value,
-        clienteNome: document.getElementById('v-cliente')?.selectedOptions?.[0]?.text || '',
-        talhaoId: document.getElementById('v-talhao')?.value,
-        talhaoNome: document.getElementById('v-talhao')?.selectedOptions?.[0]?.text || '',
-        data: document.getElementById('v-data')?.value,
-        horario: document.getElementById('v-hora')?.value,
-        tecnicoId: document.getElementById('v-tecnico')?.value,
-        tecnicoNome: document.getElementById('v-tecnico')?.selectedOptions?.[0]?.text || '',
-        lat: document.getElementById('v-lat')?.value,
-        lng: document.getElementById('v-lng')?.value,
-        observacao: document.getElementById('v-obs')?.value,
-        status: 'agendada',
-        criadoPor: usuarioAtual?.email,
-        criadoEm: new Date()
+function salvarVisita() {
+    const fazendaId = document.getElementById('vis-fazenda').value;
+    const data = document.getElementById('vis-data').value;
+    if (!fazendaId || !data) { alert('Selecione a fazenda e a data da visita!'); return; }
+    
+    const fazendas = JSON.parse(localStorage.getItem('safratech_fazendas') || '[]');
+    const fazenda = fazendas.find(f => f.id == fazendaId);
+    const talhoes = JSON.parse(localStorage.getItem('safratech_talhoes') || '[]');
+    const talhaoId = document.getElementById('vis-talhao').value;
+    const talhao = talhaoId ? talhoes.find(t => t.id == talhaoId) : null;
+    const visitas = JSON.parse(localStorage.getItem('safratech_visitas') || '[]');
+    
+    const dadosVisita = {
+        id: editandoVisita || Date.now(),
+        fazendaId,
+        fazendaNome: fazenda?.nome || 'Desconhecida',
+        talhaoId: talhaoId || null,
+        talhaoNome: talhao?.nome || null,
+        data,
+        hora: document.getElementById('vis-hora').value,
+        tecnico: document.getElementById('vis-tecnico').value,
+        lat: document.getElementById('vis-lat').value,
+        lng: document.getElementById('vis-lng').value,
+        obs: document.getElementById('vis-obs').value,
+        fotos: [],
+        status: editandoVisita ? (visitas.find(v => v.id === editandoVisita)?.status || 'agendada') : 'agendada',
+        criadoEm: editandoVisita ? visitas.find(v => v.id === editandoVisita)?.criadoEm : new Date().toLocaleString('pt-BR')
     };
-    if (!dados.clienteNome || !dados.data) { mostrarToast('Preencha os campos obrigatórios!', 'erro'); return; }
-    try {
-        await db.collection('visitas').add(dados);
-        mostrarToast('✅ Visita agendada!');
-        fecharForm('visita');
-        carregarVisitas();
-        atualizarPainel();
-        atualizarMapa();
-    } catch(e) { mostrarToast('❌ Erro: ' + e.message, 'erro'); }
+    
+    if (editandoVisita) {
+        const idx = visitas.findIndex(v => v.id === editandoVisita);
+        visitas[idx] = dadosVisita;
+        salvarLog('Editar Visita', `Visita: ${dadosVisita.fazendaNome} - ${dadosVisita.data}`);
+    } else {
+        visitas.unshift(dadosVisita);
+        salvarLog('Nova Visita', `Visita: ${dadosVisita.fazendaNome} - ${dadosVisita.data}`);
+    }
+    
+    localStorage.setItem('safratech_visitas', JSON.stringify(visitas));
+    document.getElementById('form-visita').classList.add('oculto');
+    carregarVisitas();
+    carregarDashboard();
 }
 
-async function carregarVisitas() {
+function carregarVisitas() {
+    const visitas = JSON.parse(localStorage.getItem('safratech_visitas') || '[]');
     const lista = document.getElementById('lista-visitas');
     if (!lista) return;
-    try {
-        const snap = await db.collection('visitas').orderBy('data', 'asc').get();
-        let visitas = snap.docs.map(d => ({id:d.id, ...d.data()}));
-        if (filtroVisitas !== 'todas') {
-            visitas = visitas.filter(v => v.status === filtroVisitas);
-        }
-        if (!visitas.length) { lista.innerHTML = '<p class="texto-vazio">Nenhuma visita encontrada.</p>'; return; }
-        lista.innerHTML = visitas.map(v => {
-            const statusClass = v.status === 'agendada' ? 'status-agendada' : 
-                               v.status === 'andamento' ? 'status-andamento' : 'status-concluida';
-            const statusTexto = v.status === 'agendada' ? '⏳ Agendada' : 
-                                v.status === 'andamento' ? '🚗 Em Andamento' : '✅ Concluída';
-            return `<div class="item-registro">
-                <div>
-                    <strong>${v.clienteNome}</strong> — ${v.talhaoNome || 'Sem talhão'}<br>
-                    <span style="font-size:.8rem;color:var(--texto-suave)">📅 ${formatoData(v.data)} às ${v.horario || '--:--'} • 👨‍🌾 ${v.tecnicoNome || 'Não atribuído'}</span>
-                    <span class="status-etiqueta ${statusClass}" style="margin-left:0.5rem;">${statusTexto}</span>
-                </div>
-                <div style="display:flex;gap:0.3rem;">
-                    ${v.status === 'agendada' ? `<button class="btn-secundario btn-sm" onclick="iniciarVisita('${v.id}')">🚗 Iniciar</button>` : ''}
-                    ${v.status === 'andamento' ? `<button class="btn-primario btn-sm" onclick="concluirVisita('${v.id}')">✅ Concluir</button>` : ''}
-                    <button class="btn-perigo btn-sm" onclick="excluirItem('visitas','${v.id}')">🗑️</button>
-                </div>
-            </div>`;
-        }).join('');
-    } catch(e) { lista.innerHTML = '<p class="texto-vazio">Erro ao carregar.</p>'; }
-}
-
-async function iniciarVisita(id) {
-    try {
-        await db.collection('visitas').doc(id).update({ status: 'andamento', inicio: new Date() });
-        mostrarToast('🚗 Visita em andamento!');
-        carregarVisitas();
-        atualizarPainel();
-    } catch(e) { mostrarToast('❌ Erro: ' + e.message, 'erro'); }
-}
-
-async function concluirVisita(id) {
-    try {
-        await db.collection('visitas').doc(id).update({ status: 'concluida', fim: new Date() });
-        mostrarToast('✅ Visita concluída!');
-        carregarVisitas();
-        atualizarPainel();
-        atualizarMapa();
-    } catch(e) { mostrarToast('❌ Erro: ' + e.message, 'erro'); }
-}
-
-function formVisita() { 
-    const form = document.getElementById('form-visita');
-    if (form) form.classList.remove('oculto');
-    carregarSelectsVisitas();
-    editarId = null; 
-}
-
-// ========== 📊 PAINEL ==========
-async function atualizarPainel() {
-    const elTotal = document.getElementById('total-visitas');
-    const elAgendadas = document.getElementById('visitas-agendadas');
-    const elAndamento = document.getElementById('visitas-andamento');
-    const elConcluidas = document.getElementById('visitas-concluidas');
-    const elProximas = document.getElementById('proximas-visitas');
     
-    if (!elTotal) return;
-    try {
-        const snap = await db.collection('visitas').get();
-        const visitas = snap.docs.map(d => d.data());
-        elTotal.textContent = visitas.length;
-        if (elAgendadas) elAgendadas.textContent = visitas.filter(v => v.status === 'agendada').length;
-        if (elAndamento) elAndamento.textContent = visitas.filter(v => v.status === 'andamento').length;
-        if (elConcluidas) elConcluidas.textContent = visitas.filter(v => v.status === 'concluida').length;
-        
-        if (elProximas) {
-            const proximas = visitas.filter(v => v.status !== 'concluida').sort((a,b) => new Date(a.data) - new Date(b.data)).slice(0,5);
-            if (!proximas.length) { elProximas.innerHTML = '<p class="texto-vazio">Nenhuma visita agendada.</p>'; return; }
-            elProximas.innerHTML = proximas.map(v => `
-                <div style="padding:0.5rem 0;border-bottom:1px solid var(--borda);">
-                    <strong>${v.clienteNome}</strong> — ${formatoData(v.data)} às ${v.horario || '--:--'}
+    let filtradas = visitas;
+    if (filtroAtivo !== 'todas') {
+        filtradas = visitas.filter(v => v.status === filtroAtivo);
+    }
+    
+    if (filtradas.length === 0) {
+        lista.innerHTML = '<p class="vazio">Nenhuma visita cadastrada ainda</p>';
+    } else {
+        lista.innerHTML = filtradas.map(v => `
+            <div class="item-lista">
+                <h4>📅 ${v.fazendaNome}</h4>
+                ${v.talhaoNome ? `<p>🌱 Talhão: ${v.talhaoNome}</p>` : ''}
+                <p>📅 ${v.data} às ${v.hora || '--:--'}</p>
+                <p>👤 Técnico: ${v.tecnico || 'Não informado'}</p>
+                ${v.lat && v.lng ? `<p>📍 ${v.lat}, ${v.lng}</p>` : ''}
+                <span style="display:inline-block;padding:4px 8px;border-radius:4px;font-size:12px;background:${
+                    v.status === 'agendada' ? 'rgba(249,115,22,0.1);color:#F97316' :
+                    v.status === 'andamento' ? 'rgba(132,204,22,0.1);color:#84CC16' :
+                    'rgba(16,185,129,0.1);color:#10B981'
+                }">${v.status === 'agendada' ? '⏳ Agendada' : v.status === 'andamento' ? '🚗 Em Andamento' : '✅ Concluída'}</span>
+                <div class="acoes">
+                    ${v.status === 'agendada' ? `<button onclick="iniciarVisita(${v.id})" style="background:rgba(132,204,22,0.1);color:#84CC16;border:none;">🚗 Iniciar</button>` : ''}
+                    ${v.status === 'andamento' ? `<button onclick="concluirVisita(${v.id})" style="background:rgba(16,185,129,0.1);color:#10B981;border:none;">✅ Concluir</button>` : ''}
+                    <button onclick="editarVisita(${v.id})">✏️ Editar</button>
+                    <button onclick="excluirVisita(${v.id})" style="background:rgba(234,88,12,0.1);color:#FCA58B;border:none;">🗑️ Excluir</button>
+                    <button onclick="gerarLaudoVisita(${v.id})" style="background:rgba(251,191,36,0.1);color:#FBBF24;border:none;">📄 Laudo</button>
                 </div>
-            `).join('');
-        }
-    } catch(e) {}
+            </div>
+        `).join('');
+    }
 }
 
-// ========== 🗓️ CALENDÁRIO ==========
-async function renderizarCalendario() {
-    const elMes = document.getElementById('mes-atual');
-    const elCorpo = document.getElementById('corpo-calendario');
-    if (!elMes || !elCorpo) return;
+window.iniciarVisita = function(id) {
+    const visitas = JSON.parse(localStorage.getItem('safratech_visitas') || '[]');
+    const idx = visitas.findIndex(v => v.id === id);
+    visitas[idx].status = 'andamento';
+    localStorage.setItem('safratech_visitas', JSON.stringify(visitas));
+    salvarLog('Iniciar Visita', `Visita: ${visitas[idx].fazendaNome}`);
+    carregarVisitas();
+    carregarDashboard();
+};
+
+window.concluirVisita = function(id) {
+    const visitas = JSON.parse(localStorage.getItem('safratech_visitas') || '[]');
+    const idx = visitas.findIndex(v => v.id === id);
+    visitas[idx].status = 'concluida';
+    localStorage.setItem('safratech_visitas', JSON.stringify(visitas));
+    salvarLog('Concluir Visita', `Visita: ${visitas[idx].fazendaNome}`);
+    carregarVisitas();
+    carregarDashboard();
+};
+
+window.editarVisita = function(id) {
+    const visitas = JSON.parse(localStorage.getItem('safratech_visitas') || '[]');
+    const v = visitas.find(x => x.id === id);
+    if (!v) return;
     
-    const ano = mesReferencia.getFullYear();
-    const mes = mesReferencia.getMonth();
-    elMes.textContent = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][mes] + ' ' + ano;
+    editandoVisita = id;
+    atualizarSelectFazendas();
+    atualizarSelectTalhoes();
+    document.getElementById('titulo-form-visita').textContent = 'Editar Visita';
+    document.getElementById('vis-fazenda').value = v.fazendaId;
+    document.getElementById('vis-data').value = v.data;
+    document.getElementById('vis-hora').value = v.hora || '';
+    document.getElementById('vis-tecnico').value = v.tecnico || '';
+    document.getElementById('vis-lat').value = v.lat || '';
+    document.getElementById('vis-lng').value = v.lng || '';
+    document.getElementById('vis-obs').value = v.obs || '';
+    document.getElementById('form-visita').classList.remove('oculto');
+    
+    const talhoes = JSON.parse(localStorage.getItem('safratech_talhoes') || '[]');
+    const filtrados = talhoes.filter(t => t.fazendaId == v.fazendaId);
+    const visTalhao = document.getElementById('vis-talhao');
+    if (visTalhao) {
+        visTalhao.innerHTML = '<option value="">Selecione o talhão...</option>' + 
+            filtrados.map(t => `<option value="${t.id}" ${t.id == v.talhaoId ? 'selected' : ''}>${t.nome}</option>`).join('');
+    }
+};
+
+window.excluirVisita = function(id) {
+    if (!confirm('Tem certeza que deseja excluir esta visita?')) return;
+    let visitas = JSON.parse(localStorage.getItem('safratech_visitas') || '[]');
+    const nome = visitas.find(v => v.id === id)?.fazendaNome;
+    visitas = visitas.filter(v => v.id !== id);
+    localStorage.setItem('safratech_visitas', JSON.stringify(visitas));
+    salvarLog('Excluir Visita', `Visita: ${nome}`);
+    carregarVisitas();
+    carregarDashboard();
+};
+
+window.gerarLaudoVisita = function(id) {
+    const visitas = JSON.parse(localStorage.getItem('safratech_visitas') || '[]');
+    const v = visitas.find(x => x.id === id);
+    if (!v) return;
+    
+    const conteudo = `
+        <div style="padding:30px;max-width:800px;margin:0 auto;background:#1C1917;color:#E7E5E4;font-family:Arial;">
+            <div style="text-align:center;margin-bottom:30px;border-bottom:2px solid #FBBF24;padding-bottom:20px;">
+                <h1 style="color:#FBBF24;margin:0;font-size:28px;">🌾 SAFRATECH — LAUDO DE VISITA TÉCNICA</h1>
+                <p style="color:#A8A29E;margin-top:8px;">Gerado em: ${new Date().toLocaleString('pt-BR')}</p>
+            </div>
+            <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+                <tr><td style="padding:10px;font-weight:bold;color:#FBBF24;width:40%;border-bottom:1px solid #3F3F46;">Fazenda</td><td style="padding:10px;border-bottom:1px solid #3F3F46;">${v.fazendaNome}</td></tr>
+                ${v.talhaoNome ? `<tr><td style="padding:10px;font-weight:bold;color:#FBBF24;border-bottom:1px solid #3F3F46;">Talhão</td><td style="padding:10px;border-bottom:1px solid #3F3F46;">${v.talhaoNome}</td></tr>` : ''}
+                <tr><td style="padding:10px;font-weight:bold;color:#FBBF24;border-bottom:1px solid #3F3F46;">Data</td><td style="padding:10px;border-bottom:1px solid #3F3F46;">${v.data} às ${v.hora || '--:--'}</td></tr>
+                <tr><td style="padding:10px;font-weight:bold;color:#FBBF24;border-bottom:1px solid #3F3F46;">Técnico Responsável</td><td style="padding:10px;border-bottom:1px solid #3F3F46;">${v.tecnico || 'Não informado'}</td></tr>
+                ${v.lat && v.lng ? `<tr><td style="padding:10px;font-weight:bold;color:#FBBF24;border-bottom:1px solid #3F3F46;">Coordenadas</td><td style="padding:10px;border-bottom:1px solid #3F3F46;">${v.lat}, ${v.lng}</td></tr>` : ''}
+                <tr><td style="padding:10px;font-weight:bold;color:#FBBF24;border-bottom:1px solid #3F3F46;">Status</td><td style="padding:10px;border-bottom:1px solid #3F3F46;">${v.status === 'agendada' ? '⏳ Agendada' : v.status === 'andamento' ? '🚗 Em Andamento' : '✅ Concluída'}</td></tr>
+            </table>
+            <h3 style="color:#FBBF24;margin-top:30px;">📝 Observações / Laudo Técnico</h3>
+            <div style="background:#292524;padding:20px;border-radius:8px;white-space:pre-wrap;min-height:100px;">${v.obs || 'Nenhuma observação registrada.'}</div>
+            <div style="margin-top:60px;text-align:center;">
+                <p>___________________________________</p>
+                <p>Assinatura do Técnico Responsável</p>
+            </div>
+        </div>
+    `;
+    
+    const janela = window.open('', '_blank');
+    janela.document.write(conteudo);
+    janela.document.close();
+    salvarLog('Gerar Laudo', `Fazenda: ${v.fazendaNome}`);
+};
+
+// ===== CALENDÁRIO =====
+let dataAtual = new Date();
+let dataSelecionada = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    const btnMesAnterior = document.getElementById('btn-mes-anterior');
+    if (btnMesAnterior) btnMesAnterior.addEventListener('click', mesAnterior);
+
+    const btnProximoMes = document.getElementById('btn-proximo-mes');
+    if (btnProximoMes) btnProximoMes.addEventListener('click', proximoMes);
+});
+
+function mesAnterior() {
+    dataAtual.setMonth(dataAtual.getMonth() - 1);
+    renderizarCalendario();
+}
+
+function proximoMes() {
+    dataAtual.setMonth(dataAtual.getMonth() + 1);
+    renderizarCalendario();
+}
+
+function renderizarCalendario() {
+    const ano = dataAtual.getFullYear();
+    const mes = dataAtual.getMonth();
+    const nomeMeses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+    
+    const elementoMes = document.getElementById('mes-atual');
+    if (elementoMes) elementoMes.textContent = `${nomeMeses[mes]} ${ano}`;
     
     const primeiroDia = new Date(ano, mes, 1).getDay();
     const ultimoDia = new Date(ano, mes + 1, 0).getDate();
+    const ultimoDiaMesAnterior = new Date(ano, mes, 0).getDate();
+    
+    const visitas = JSON.parse(localStorage.getItem('safratech_visitas') || '[]');
+    const corpo = document.getElementById('corpo-calendario');
+    if (!corpo) return;
+    corpo.innerHTML = '';
+    
+    for (let i = primeiroDia - 1; i >= 0; i--) {
+        const dia = ultimoDiaMesAnterior - 1 + i + 1;
+        const el = document.createElement('div');
+        el.className = 'dia-calendario outro-mes';
+        el.textContent = dia;
+        corpo.appendChild(el);
+    }
+    
     const hoje = new Date();
-    
-    let visitas = [];
-    try {
-        const snap = await db.collection('visitas').get();
-        visitas = snap.docs.map(d => ({id:d.id, ...d.data()}));
-    } catch(e) {}
-    
-    elCorpo.innerHTML = '';
-    for (let i = 0; i < primeiroDia; i++) elCorpo.innerHTML += '<div class="dia-vazio"></div>';
     for (let dia = 1; dia <= ultimoDia; dia++) {
         const dataStr = `${ano}-${String(mes+1).padStart(2,'0')}-${String(dia).padStart(2,'0')}`;
         const temEvento = visitas.some(v => v.data === dataStr);
         const ehHoje = hoje.getDate() === dia && hoje.getMonth() === mes && hoje.getFullYear() === ano;
-        const ehSelecionado = dataSelecionada === dataStr;
         
-        elCorpo.innerHTML += `
-            <div class="dia-mes ${ehHoje ? 'hoje' : ''} ${ehSelecionado ? 'selecionado' : ''}" 
-                 onclick="selecionarData('${dataStr}')">
-                ${dia}
-                ${temEvento ? `<span class="ponto-evento"></span>` : ''}
-            </div>
-        `;
+        const el = document.createElement('div');
+        el.className = 'dia-calendario';
+        if (ehHoje) el.classList.add('hoje');
+        if (temEvento) el.classList.add('com-evento');
+        el.textContent = dia;
+        el.addEventListener('click', selecionarData.bind(null, dataStr, dia));
+        corpo.appendChild(el);
+    }
+    
+    const totalCelulas = primeiroDia + ultimoDia;
+    const diasFaltantes = totalCelulas % 7 === 0 ? 0 : 7 - (totalCelulas % 7);
+    for (let dia = 1; dia <= diasFaltantes; dia++) {
+        const el = document.createElement('div');
+        el.className = 'dia-calendario outro-mes';
+        el.textContent = dia;
+        corpo.appendChild(el);
     }
 }
 
-function mesAnterior() { mesReferencia.setMonth(mesReferencia.getMonth() - 1); renderizarCalendario(); }
-function proximoMes() { mesReferencia.setMonth(mesReferencia.getMonth() + 1); renderizarCalendario(); }
-
-async function selecionarData(dataStr) {
+function selecionarData(dataStr, dia) {
     dataSelecionada = dataStr;
-    renderizarCalendario();
+    const visitas = JSON.parse(localStorage.getItem('safratech_visitas') || '[]');
+    const doDia = visitas.filter(v => v.data === dataStr);
+    const container = document.getElementById('eventos-do-dia');
+    const titulo = document.getElementById('eventos-data');
     
-    const elLista = document.getElementById('eventos-lista');
-    const elData = document.getElementById('eventos-data');
-    if (!elLista) return;
+    if (titulo) titulo.textContent = `Visitas — ${dia}/${dataAtual.getMonth()+1}/${dataAtual.getFullYear()}`;
     
-    if (elData) elData.textContent = 'Visitas — ' + formatoData(dataStr);
+    if (!container) return;
     
-    try {
-        const snap = await db.collection('visitas').where('data', '==', dataStr).get();
-        if (snap.empty) { elLista.innerHTML = '<p class="texto-vazio">Nenhuma visita nesta data.</p>'; return; }
-        elLista.innerHTML = snap.docs.map(d => {
-            const v = d.data();
-            return `<div class="item-registro">
-                <div><strong>${v.clienteNome}</strong> — ${v.talhaoNome || 'Sem talhão'}<br>
-                <span style="font-size:.8rem;color:var(--texto-suave)">⏰ ${v.horario || '--:--'} • 👨‍🌾 ${v.tecnicoNome || 'Não informado'}</span></div>
-            </div>`;
-        }).join('');
-    } catch(e) { elLista.innerHTML = '<p class="texto-vazio">Erro ao carregar.</p>'; }
+    if (doDia.length === 0) {
+        container.innerHTML = '<p class="vazio">Nenhuma visita agendada para esta data</p>';
+    } else {
+        container.innerHTML = doDia.map(v => `
+            <div class="item-lista" style="margin-bottom:8px;">
+                <h4>${v.fazendaNome} — ${v.hora || '--:--'}</h4>
+                <p>👤 ${v.tecnico || 'Não informado'}</p>
+                <span style="font-size:12px;">${v.status === 'agendada' ? '⏳ Agendada' : v.status === 'andamento' ? '🚗 Em Andamento' : '✅ Concluída'}</span>
+            </div>
+        `).join('');
+    }
 }
 
-// ========== 🗺️ MAPA ==========
-function inicializarMapa() {
-    const elMapa = document.getElementById('mapa');
-    if (!elMapa || mapa) return;
-    try {
-        mapa = L.map('mapa').setView([-15.77972, -47.92972], 10);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(mapa);
-        atualizarMapa();
-    } catch(e) { console.warn('❌ Erro ao carregar mapa:', e); }
-}
+// ===== USUÁRIOS =====
+let editandoUsuario = null;
 
-async function atualizarMapa() {
-    if (!mapa) return;
-    marcadores.forEach(m => mapa.removeLayer(m));
-    marcadores = [];
+document.addEventListener('DOMContentLoaded', function() {
+    const btnNovoUsuario = document.getElementById('btn-novo-usuario');
+    if (btnNovoUsuario) btnNovoUsuario.addEventListener('click', () => {
+        editandoUsuario = null;
+        document.getElementById('titulo-form-usuario').textContent = 'Novo Usuário';
+        document.getElementById('form-usuario').classList.remove('oculto');
+        document.getElementById('u-nome').value = '';
+        document.getElementById('u-email').value = '';
+        document.getElementById('u-senha').value = '';
+        document.getElementById('u-perfil').value = 'Técnico';
+        document.getElementById('u-telefone').value = '';
+        document.getElementById('u-status').value = 'ativo';
+    });
+
+    const btnFecharUsuario = document.getElementById('btn-fechar-usuario');
+    if (btnFecharUsuario) btnFecharUsuario.addEventListener('click', () => {
+        document.getElementById('form-usuario').classList.add('oculto');
+    });
+
+    const btnSalvarUsuario = document.getElementById('btn-salvar-usuario');
+    if (btnSalvarUsuario) btnSalvarUsuario.addEventListener('click', salvarUsuario);
+
+    const pesqUsuario = document.getElementById('pesq-usuario');
+    if (pesqUsuario) pesqUsuario.addEventListener('input', carregarUsuarios);
+});
+
+function salvarUsuario() {
+    const nome = document.getElementById('u-nome').value.trim();
+    const email = document.getElementById('u-email').value.trim();
+    const senha = document.getElementById('u-senha').value;
     
-    try {
-        const snap = await db.collection('visitas').get();
-        const visitas = snap.docs.map(d => ({id:d.id, ...d.data()})).filter(v => v.lat && v.lng);
-        const lista = document.getElementById('lista-pontos-mapa');
-        
-        if (lista && !visitas.length) {
-            lista.innerHTML = '<p class="texto-vazio">Nenhuma visita com localização cadastrada.</p>';
-            return;
-        }
-        
-        visitas.forEach(v => {
-            const marker = L.marker([parseFloat(v.lat), parseFloat(v.lng)])
-                .addTo(mapa)
-                .bindPopup(`
-                    <strong>${v.clienteNome}</strong><br>
-                    ${v.talhaoNome || ''}<br>
-                    📅 ${formatoData(v.data)}<br>
-                    <em>${v.status === 'agendada' ? '⏳ Agendada' : v.status === 'andamento' ? '🚗 Em Andamento' : '✅ Concluída'}</em>
-                `);
-            marcadores.push(marker);
+    if (!nome || !email) { alert('Informe o nome e o e-mail!'); return; }
+    if (!editandoUsuario && senha.length < 6) { alert('A senha deve ter pelo menos 6 caracteres!'); return; }
+    
+    const usuarios = JSON.parse(localStorage.getItem('safratech_usuarios') || '[]');
+    
+    if (editandoUsuario) {
+        const idx = usuarios.findIndex(u => u.id === editandoUsuario);
+        usuarios[idx] = {
+            ...usuarios[idx],
+            nome,
+            email,
+            perfil: document.getElementById('u-perfil').value,
+            telefone: document.getElementById('u-telefone').value,
+            status: document.getElementById('u-status').value
+        };
+        if (senha) usuarios[idx].senha = senha;
+        salvarLog('Editar Usuário', `Usuário: ${nome}`);
+    } else {
+        usuarios.push({
+            id: Date.now(),
+            nome,
+            email,
+            senha,
+            perfil: document.getElementById('u-perfil').value,
+            telefone: document.getElementById('u-telefone').value,
+            status: document.getElementById('u-status').value
         });
-        
-        if (lista) {
-            lista.innerHTML = visitas.map(v => `
-                <div class="ponto-mapa-item">
-                    <strong>${v.clienteNome}</strong> — ${v.talhaoNome || 'Sem talhão'}<br>
-                    📅 ${formatoData(v.data)} • 📍 ${v.lat}, ${v.lng}
+        salvarLog('Novo Usuário', `Usuário: ${nome}`);
+    }
+    
+    localStorage.setItem('safratech_usuarios', JSON.stringify(usuarios));
+    document.getElementById('form-usuario').classList.add('oculto');
+    carregarUsuarios();
+}
+
+function carregarUsuarios() {
+    const usuarios = JSON.parse(localStorage.getItem('safratech_usuarios') || '[]');
+    const lista = document.getElementById('lista-usuarios');
+    const listaLog = document.getElementById('lista-log');
+    if (!lista) return;
+    
+    const termo = document.getElementById('pesq-usuario')?.value.toLowerCase() || '';
+    
+    const filtrados = usuarios.filter(u => 
+        u.nome.toLowerCase().includes(termo) || 
+        u.email.toLowerCase().includes(termo)
+    );
+    
+    if (filtrados.length === 0) {
+        lista.innerHTML = '<p class="vazio">Nenhum usuário cadastrado</p>';
+    } else {
+        lista.innerHTML = filtrados.map(u => `
+            <div class="item-lista">
+                <h4>👤 ${u.nome}</h4>
+                <p>📧 ${u.email}</p>
+                <p>🎓 Perfil: ${u.perfil} | Status: <span style="color:${u.status === 'ativo' ? '#84CC16' : '#F97316'}">${u.status === 'ativo' ? 'Ativo' : 'Inativo'}</span></p>
+                <div class="acoes">
+                    <button onclick="editarUsuario(${u.id})">✏️ Editar</button>
+                    ${u.email !== 'admin@safratech.com' ? `<button onclick="excluirUsuario(${u.id})" style="background:rgba(234,88,12,0.1);color:#FCA58B;border:none;">🗑️ Excluir</button>` : ''}
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    if (listaLog) {
+        const logs = JSON.parse(localStorage.getItem('safratech_log') || '[]');
+        if (logs.length === 0) {
+            listaLog.innerHTML = '<p class="vazio">Nenhuma atividade registrada</p>';        } else {
+            listaLog.innerHTML = logs.map(l => `
+                <div class="item-lista" style="font-size:13px;">
+                    <p><strong>${l.data}</strong></p>
+                    <p>👤 ${l.usuario} → ${l.acao}</p>
+                    ${l.detalhes ? `<p style="color:#94A3B8">${l.detalhes}</p>` : ''}
                 </div>
             `).join('');
         }
-    } catch(e) {}
-}
-
-function localizacaoAtual() {
-    if (!navigator.geolocation) { mostrarToast('Geolocalização não suportada', 'erro'); return; }
-    navigator.geolocation.getCurrentPosition(
-        pos => {
-            if (mapa) mapa.setView([pos.coords.latitude, pos.coords.longitude], 14);
-            mostrarToast('📍 Localização encontrada!');
-        },
-        err => mostrarToast('❌ Erro ao obter localização', 'erro')
-    );
-}
-
-function centralizarMapa() {
-    if (!mapa || marcadores.length === 0) return;
-    mapa.fitBounds(L.featureGroup(marcadores).getBounds(), { padding: [30, 30] });
-}
-
-// ========== 📄 RELATÓRIOS ==========
-async function carregarSelectRelatorios() {
-    const select = document.getElementById('r-cliente');
-    if (!select) return;
-    try {
-        const snap = await db.collection('clientes').orderBy('nome').get();
-        select.innerHTML = '<option value="">Selecione...</option>' + 
-            snap.docs.map(d => `<option value="${d.id}">${d.data().nome}</option>`).join('');
-    } catch(e) {}
-}
-
-function mostrarFiltroPeriodo() {
-    document.getElementById('filtro-periodo')?.classList.remove('oculto');
-    document.getElementById('filtro-cliente')?.classList.add('oculto');
-    document.getElementById('area-relatorio')?.classList.add('oculto');
-}
-
-function mostrarFiltroCliente() {
-    carregarSelectRelatorios();
-    document.getElementById('filtro-cliente")?.classList.remove("oculto');
-    document.getElementById('filtro-periodo')?.classList.add('oculto');
-    document.getElementById('area-relatorio')?.classList.add('oculto');
-}
-
-function fecharFiltro(tipo) {
-    document.getElementById(`filtro-${tipo}`)?.classList.add('oculto');
-}
-
-async function gerarRelatorioCompleto() {
-    try {
-        const snap = await db.collection('visitas').orderBy('data', 'desc').get();
-        exibirRelatorio('Relatório Completo de Visitas', snap.docs.map(d => ({id:d.id, ...d.data()})));
-    } catch(e) { mostrarToast('❌ Erro ao gerar relatório', 'erro'); }
-}
-
-async function gerarRelatorioPeriodo() {
-    const inicio = document.getElementById('r-inicio')?.value;
-    const fim = document.getElementById('r-fim')?.value;
-    if (!inicio || !fim) { mostrarToast('Informe o período!', 'erro'); return; }
-    try {
-        const snap = await db.collection('visitas').where('data', '>=', inicio).where('data', '<=', fim).orderBy('data', 'asc').get();
-        exibirRelatorio(`Relatório: ${formatoData(inicio)} a ${formatoData(fim)}`, snap.docs.map(d => ({id:d.id, ...d.data()})));
-    } catch(e) { mostrarToast('❌ Erro ao gerar relatório', 'erro'); }
-}
-
-async function gerarRelatorioCliente() {
-    const cliId = document.getElementById('r-cliente')?.value;
-    if (!cliId) { mostrarToast('Selecione um cliente!', 'erro'); return; }
-    const nomeCli = document.getElementById('r-cliente')?.selectedOptions?.[0]?.text;
-    try {
-        const snap = await db.collection('visitas').where('clienteId', '==', cliId).orderBy('data', 'desc').get();
-        exibirRelatorio(`Relatório: ${nomeCli}`, snap.docs.map(d => ({id:d.id, ...d.data()})));
-    } catch(e) { mostrarToast('❌ Erro ao gerar relatório', 'erro'); }
-}
-
-function exibirRelatorio(titulo, dados) {
-    document.getElementById('area-relatorio')?.classList.remove('oculto');
-    document.getElementById('filtro-periodo')?.classList.add('oculto');
-    document.getElementById('filtro-cliente')?.classList.add('oculto');
-    
-    const conteudo = document.getElementById('conteudo-relatorio');
-    if (!conteudo) return;
-    
-    if (!dados.length) {
-        conteudo.innerHTML = '<p class="texto-vazio">Nenhum registro encontrado para este filtro.</p>';
-        return;
     }
+}
+
+window.editarUsuario = function(id) {
+    const usuarios = JSON.parse(localStorage.getItem('safratech_usuarios') || '[]');
+    const u = usuarios.find(x => x.id === id);
+    if (!u) return;
     
-    conteudo.innerHTML = `
-        <div style="overflow-x:auto;">
-            <table style="width:100%;border-collapse:collapse;font-size:.9rem;">
+    editandoUsuario = id;
+    document.getElementById('titulo-form-usuario').textContent = 'Editar Usuário';
+    document.getElementById('u-nome').value = u.nome;
+    document.getElementById('u-email').value = u.email;
+    document.getElementById('u-senha').value = '';
+    document.getElementById('u-perfil').value = u.perfil;
+    document.getElementById('u-telefone').value = u.telefone || '';
+    document.getElementById('u-status').value = u.status;
+    document.getElementById('form-usuario').classList.remove('oculto');
+};
+
+window.excluirUsuario = function(id) {
+    if (!confirm('Tem certeza que deseja excluir este usuário?')) return;
+    let usuarios = JSON.parse(localStorage.getItem('safratech_usuarios') || '[]');
+    const nome = usuarios.find(u => u.id === id)?.nome;
+    usuarios = usuarios.filter(u => u.id !== id);
+    localStorage.setItem('safratech_usuarios', JSON.stringify(usuarios));
+    salvarLog('Excluir Usuário', `Usuário: ${nome}`);
+    carregarUsuarios();
+};
+
+// ===== RELATÓRIOS =====
+document.addEventListener('DOMContentLoaded', function() {
+    const btnRelCompleto = document.getElementById('btn-relatorio-completo');
+    if (btnRelCompleto) btnRelCompleto.addEventListener('click', gerarRelatorioCompleto);
+
+    const btnRelFiltrado = document.getElementById('btn-relatorio-filtrado');
+    if (btnRelFiltrado) btnRelFiltrado.addEventListener('click', gerarRelatorioFiltrado);
+});
+
+function gerarRelatorioCompleto() {
+    const fazendas = JSON.parse(localStorage.getItem('safratech_fazendas') || '[]');
+    const talhoes = JSON.parse(localStorage.getItem('safratech_talhoes') || '[]');
+    const visitas = JSON.parse(localStorage.getItem('safratech_visitas') || '[]');
+    const dataRel = new Date().toLocaleString('pt-BR');
+
+    const conteudo = `
+        <div style="padding:30px;max-width:800px;margin:0 auto;background:#1C1917;color:#E7E5E4;font-family:Arial;">
+            <div style="text-align:center;margin-bottom:30px;border-bottom:2px solid #FBBF24;padding-bottom:20px;">
+                <h1 style="color:#FBBF24;margin:0;font-size:28px;">🌾 SAFRATECH — RELATÓRIO COMPLETO</h1>
+                <p style="color:#A8A29E;margin-top:8px;">Gerado em: ${dataRel}</p>
+            </div>
+
+            <h2 style="color:#FBBF24;font-size:20px;margin-top:30px;">📊 Resumo Geral</h2>
+            <table style="width:100%;border-collapse:collapse;margin-bottom:30px;">
+                <tr><td style="padding:10px;font-weight:bold;color:#FBBF24;border-bottom:1px solid #3F3F46;">Fazendas Cadastradas</td><td style="padding:10px;border-bottom:1px solid #3F3F46;">${fazendas.length}</td></tr>
+                <tr><td style="padding:10px;font-weight:bold;color:#FBBF24;border-bottom:1px solid #3F3F46;">Talhões Cadastrados</td><td style="padding:10px;border-bottom:1px solid #3F3F46;">${talhoes.length}</td></tr>
+                <tr><td style="padding:10px;font-weight:bold;color:#FBBF24;border-bottom:1px solid #3F3F46;">Visitas Agendadas</td><td style="padding:10px;border-bottom:1px solid #3F3F46;">${visitas.filter(v => v.status === 'agendada').length}</td></tr>
+                <tr><td style="padding:10px;font-weight:bold;color:#FBBF24;border-bottom:1px solid #3F3F46;">Visitas em Andamento</td><td style="padding:10px;border-bottom:1px solid #3F3F46;">${visitas.filter(v => v.status === 'andamento').length}</td></tr>
+                <tr><td style="padding:10px;font-weight:bold;color:#FBBF24;border-bottom:1px solid #3F3F46;">Visitas Concluídas</td><td style="padding:10px;border-bottom:1px solid #3F3F46;">${visitas.filter(v => v.status === 'concluida').length}</td></tr>
+            </table>
+
+            <h2 style="color:#FBBF24;font-size:20px;margin-top:30px;">📋 Lista de Visitas</h2>
+            ${visitas.length === 0 ? '<p>Nenhuma visita registrada.</p>' : `
+            <table style="width:100%;border-collapse:collapse;font-size:14px;">
                 <thead>
-                    <tr style="background:rgba(0,229,255,.08);">
-                        <th style="padding:.7rem;text-align:left;border-bottom:1px solid var(--borda);">Data</th>
-                        <th style="padding:.7rem;text-align:left;border-bottom:1px solid var(--borda);">Fazenda</th>
-                        <th style="padding:.7rem;text-align:left;border-bottom:1px solid var(--borda);">Talhão</th>
-                        <th style="padding:.7rem;text-align:left;border-bottom:1px solid var(--borda);">Técnico</th>
-                        <th style="padding:.7rem;text-align:left;border-bottom:1px solid var(--borda);">Status</th>
+                    <tr style="background:#292524;">
+                        <th style="padding:8px;text-align:left;color:#FBBF24;border-bottom:1px solid #3F3F46;">Fazenda</th>
+                        <th style="padding:8px;text-align:left;color:#FBBF24;border-bottom:1px solid #3F3F46;">Data</th>
+                        <th style="padding:8px;text-align:left;color:#FBBF24;border-bottom:1px solid #3F3F46;">Técnico</th>
+                        <th style="padding:8px;text-align:left;color:#FBBF24;border-bottom:1px solid #3F3F46;">Status</th>
                     </tr>
                 </thead>
                 <tbody>
-                    ${dados.map(v => `
-                        <tr>
-                            <td style="padding:.6rem;border-bottom:1px solid var(--borda);">${formatoData(v.data)}</td>
-                            <td style="padding:.6rem;border-bottom:1px solid var(--borda);">${v.clienteNome}</td>
-                            <td style="padding:.6rem;border-bottom:1px solid var(--borda);">${v.talhaoNome || '-'}</td>
-                            <td style="padding:.6rem;border-bottom:1px solid var(--borda);">${v.tecnicoNome || '-'}</td>
-                            <td style="padding:.6rem;border-bottom:1px solid var(--borda);">
-                                ${v.status === 'agendada' ? '⏳ Agendada' : v.status === 'andamento' ? '🚗 Em Andamento' : '✅ Concluída'}
-                            </td>
-                        </tr>
+                    ${visitas.map(v => `
+                    <tr>
+                        <td style="padding:8px;border-bottom:1px solid #3F3F46;">${v.fazendaNome}</td>
+                        <td style="padding:8px;border-bottom:1px solid #3F3F46;">${v.data} ${v.hora || ''}</td>
+                        <td style="padding:8px;border-bottom:1px solid #3F3F46;">${v.tecnico || '-'}</td>
+                        <td style="padding:8px;border-bottom:1px solid #3F3F46;">${
+                            v.status === 'agendada' ? '⏳ Agendada' :
+                            v.status === 'andamento' ? '🚗 Em Andamento' : '✅ Concluída'
+                        }</td>
+                    </tr>
                     `).join('')}
                 </tbody>
             </table>
+            `}
+
+            <div style="margin-top:60px;text-align:center;color:#A8A29E;font-size:12px;">
+                <p>🌾 SafraTech — Sistema de Gestão de Visitas Técnicas</p>
+            </div>
         </div>
-        <p style="margin-top:1rem;text-align:right;color:var(--texto-suave);font-size:.8rem;">
-            Total: ${dados.length} registros • Gerado em: ${new Date().toLocaleString('pt-BR')}
-        </p>
     `;
-}
 
-function fecharRelatorio() {
-    document.getElementById('area-relatorio')?.classList.add('oculto');
-}
-
-function imprimirRelatorio() {
-    const conteudo = document.getElementById('conteudo-relatorio')?.innerHTML || '';
     const janela = window.open('', '_blank');
-    janela.document.write(`
-        <html>
-        <head>
-            <title>Relatório AgroManejo</title>
-            <style>
-                body { font-family: Arial, sans-serif; padding: 20px; color: #333; background: #fff; }
-                h1 { text-align: center; color: #00e5ff; }
-                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid #ddd; }
-                th { background: #f5f5f5; font-weight: bold; }
-                @media print { body { padding: 0; } }
-            </style>
-        </head>
-        <body>
-            <h1>🌾 AgroManejo — Relatório de Visitas Técnicas</h1>
-            ${conteudo}
-            <script>window.onload = function() { window.print(); };<\/script>
-        </body>
-        </html>
-    `);
+    janela.document.write(conteudo);
     janela.document.close();
+    salvarLog('Gerar Relatório', 'Relatório completo exportado');
 }
 
-// ========== 🗑️ EXCLUIR ITENS ==========
-async function excluirItem(colecao, id) {
-    if (!confirm('Tem certeza que deseja excluir?')) return;
-    try {
-        await db.collection(colecao).doc(id).delete();
-        mostrarToast('✅ Excluído com sucesso!');
-        if (colecao === 'usuarios') carregarUsuarios();
-        if (colecao === 'clientes') carregarClientes();
-        if (colecao === 'talhoes') carregarTalhoes();
-        if (colecao === 'visitas') { carregarVisitas(); atualizarPainel(); atualizarMapa(); }
-    } catch(e) { mostrarToast('❌ Erro ao excluir: ' + e.message, 'erro'); }
+function gerarRelatorioFiltrado() {
+    const fazendaId = document.getElementById('rel-fazenda')?.value;
+    const talhaoId = document.getElementById('rel-talhao')?.value;
+    const dataInicio = document.getElementById('rel-data-inicio')?.value;
+    const dataFim = document.getElementById('rel-data-fim')?.value;
+
+    let visitas = JSON.parse(localStorage.getItem('safratech_visitas') || '[]');
+
+    if (fazendaId) visitas = visitas.filter(v => v.fazendaId == fazendaId);
+    if (talhaoId) visitas = visitas.filter(v => v.talhaoId == talhaoId);
+    if (dataInicio) visitas = visitas.filter(v => v.data >= dataInicio);
+    if (dataFim) visitas = visitas.filter(v => v.data <= dataFim);
+
+    const dataRel = new Date().toLocaleString('pt-BR');
+
+    const conteudo = `
+        <div style="padding:30px;max-width:800px;margin:0 auto;background:#1C1917;color:#E7E5E4;font-family:Arial;">
+            <div style="text-align:center;margin-bottom:30px;border-bottom:2px solid #FBBF24;padding-bottom:20px;">
+                <h1 style="color:#FBBF24;margin:0;font-size:28px;">🌾 SAFRATECH — RELATÓRIO FILTRADO</h1>
+                <p style="color:#A8A29E;margin-top:8px;">Gerado em: ${dataRel}</p>
+            </div>
+
+            <h2 style="color:#FBBF24;font-size:18px;margin-bottom:15px;">📋 Filtros Aplicados</h2>
+            <table style="width:100%;border-collapse:collapse;margin-bottom:25px;">
+                <tr><td style="padding:8px;font-weight:bold;color:#FBBF24;width:40%;border-bottom:1px solid #3F3F46;">Fazenda</td><td style="padding:8px;border-bottom:1px solid #3F3F46;">${fazendaId ? document.querySelector('#rel-fazenda option:checked')?.textContent || 'Selecionada' : 'Todas'}</td></tr>
+                <tr><td style="padding:8px;font-weight:bold;color:#FBBF24;border-bottom:1px solid #3F3F46;">Talhão</td><td style="padding:8px;border-bottom:1px solid #3F3F46;">${talhaoId ? document.querySelector('#rel-talhao option:checked')?.textContent || 'Selecionado' : 'Todos'}</td></tr>
+                <tr><td style="padding:8px;font-weight:bold;color:#FBBF24;border-bottom:1px solid #3F3F46;">Período</td><td style="padding:8px;border-bottom:1px solid #3F3F46;">${dataInicio || 'Início'} até ${dataFim || 'Atual'}</td></tr>
+            </table>
+
+            <h2 style="color:#FBBF24;font-size:18px;margin-bottom:15px;">📊 ${visitas.length} Visita(s) Encontrada(s)</h2>
+            ${visitas.length === 0 ? '<p>Nenhuma visita corresponde aos filtros selecionados.</p>' : `
+            <table style="width:100%;border-collapse:collapse;font-size:14px;">
+                <thead>
+                    <tr style="background:#292524;">
+                        <th style="padding:8px;text-align:left;color:#FBBF24;border-bottom:1px solid #3F3F46;">Fazenda</th>
+                        <th style="padding:8px;text-align:left;color:#FBBF24;border-bottom:1px solid #3F3F46;">Talhão</th>
+                        <th style="padding:8px;text-align:left;color:#FBBF24;border-bottom:1px solid #3F3F46;">Data</th>
+                        <th style="padding:8px;text-align:left;color:#FBBF24;border-bottom:1px solid #3F3F46;">Técnico</th>
+                        <th style="padding:8px;text-align:left;color:#FBBF24;border-bottom:1px solid #3F3F46;">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${visitas.map(v => `
+                    <tr>
+                        <td style="padding:8px;border-bottom:1px solid #3F3F46;">${v.fazendaNome}</td>
+                        <td style="padding:8px;border-bottom:1px solid #3F3F46;">${v.talhaoNome || '-'}</td>
+                        <td style="padding:8px;border-bottom:1px solid #3F3F46;">${v.data} ${v.hora || ''}</td>
+                        <td style="padding:8px;border-bottom:1px solid #3F3F46;">${v.tecnico || '-'}</td>
+                        <td style="padding:8px;border-bottom:1px solid #3F3F46;">${
+                            v.status === 'agendada' ? '⏳ Agendada' :
+                            v.status === 'andamento' ? '🚗 Em Andamento' : '✅ Concluída'
+                        }</td>
+                    </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+            `}
+
+            <div style="margin-top:60px;text-align:center;color:#A8A29E;font-size:12px;">
+                <p>🌾 SafraTech — Sistema de Gestão de Visitas Técnicas</p>
+            </div>
+        </div>
+    `;
+
+    const janela = window.open('', '_blank');
+    janela.document.write(conteudo);
+    janela.document.close();
+    salvarLog('Gerar Relatório', 'Relatório filtrado exportado');
 }
 
-function fecharForm(tipo) {
-    const form = document.getElementById(`form-${tipo}`);
-    if (form) form.classList.add('oculto');
-    editarId = null;
-    
-    if (tipo === 'usuario') {
-        document.getElementById('u-nome') && (document.getElementById('u-nome').value = '');
-        document.getElementById('u-email') && (document.getElementById('u-email').value = '');
-        document.getElementById('u-senha') && (document.getElementById('u-senha').value = '');
-    } else if (tipo === 'cliente') {
-        document.getElementById('c-nome') && (document.getElementById('c-nome').value = '');
-        document.getElementById('c-proprietario') && (document.getElementById('c-proprietario').value = '');
-        document.getElementById('c-cidade') && (document.getElementById('c-cidade').value = '');
-        document.getElementById('c-telefone') && (document.getElementById('c-telefone').value = '');
-        document.getElementById('c-obs') && (document.getElementById('c-obs').value = '');
-    } else if (tipo === 'talhao') {
-        document.getElementById('t-cliente') && (document.getElementById('t-cliente').value = '');
-        document.getElementById('t-nome') && (document.getElementById('t-nome').value = '');
-        document.getElementById('t-area') && (document.getElementById('t-area').value = '');
-        document.getElementById('t-cultura') && (document.getElementById('t-cultura').value = '');
-        document.getElementById('t-variedade') && (document.getElementById('t-variedade').value = '');
-    } else if (tipo === 'visita') {
-        document.getElementById('v-cliente') && (document.getElementById('v-cliente').value = '');
-        document.getElementById('v-talhao') && (document.getElementById('v-talhao').value = '');
-        document.getElementById('v-data') && (document.getElementById('v-data').value = '');
-        document.getElementById('v-hora') && (document.getElementById('v-hora').value = '');
-        document.getElementById('v-tecnico') && (document.getElementById('v-tecnico').value = '');
-        document.getElementById('v-lat') && (document.getElementById('v-lat').value = '');
-        document.getElementById('v-lng') && (document.getElementById('v-lng').value = '');
-        document.getElementById('v-obs') && (document.getElementById('v-obs').value = '');
-    }
-}
-
-async function carregarTudo() {
-    console.log('📦 Carregando dados...');
-    await Promise.all([
-        carregarUsuarios(),
-        carregarClientes(),
-        carregarTalhoes(),
-        carregarVisitas(),
-        atualizarPainel()
-    ]);
-    console.log('✅ Dados carregados!');
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('📄 Página totalmente carregada!');
-});
+console.log('✅ SafraTech carregado com sucesso!');

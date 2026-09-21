@@ -3,38 +3,49 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AgroManejo — Login</title>
+    <title>SafraTech — Login</title>
     <link rel="stylesheet" href="./Styles/estilos.css">
 </head>
-<body class="pagina-login">
-    <div class="fundo-dinamico"></div>
-    <div class="grade-rede"></div>
-    
-    <div class="conteudo-wrapper login-wrapper">
-        <div class="login-bloco">
-            <div class="login-titulo">
-                <div class="logo-icone" style="margin:0 auto;">🌾</div>
-                <h1>AgroManejo</h1>
-                <p>Sistema de Gestão de Visitas Técnicas</p>
-            </div>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <h1>🌾 SafraTech</h1>
+            <p>Sistema de Gestão de Visitas Técnicas</p>
             
-            <div class="erro-msg" id="erro-login" style="display:none;"></div>
-            
-            <div class="grupo-form">
+            <div class="form-grupo">
                 <label>E-mail</label>
-                <input type="email" id="login-email" placeholder="seu@email.com">
+                <input type="email" id="email" placeholder="seuemail@email.com">
             </div>
-            <div class="grupo-form">
+            
+            <div class="form-grupo">
                 <label>Senha</label>
-                <input type="password" id="login-senha" placeholder="Digite sua senha">
+                <input type="password" id="senha" placeholder="Digite sua senha">
             </div>
-            <button class="btn-primario btn-largo" onclick="fazerLogin()">🔐 Entrar</button>
+            
+            <button onclick="fazerLogin()">Entrar</button>
+            <div id="mensagem-erro" class="mensagem-erro oculto">E-mail ou senha incorretos!</div>
         </div>
     </div>
-    
-    <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore-compat.js"></script>
-    <script src="js/app.js"></script>
+
+    <script>
+        const USUARIO_VALIDO = "admin@safratech.com";
+        const SENHA_VALIDA = "123456";
+
+        function fazerLogin() {
+            const email = document.getElementById('email').value.trim();
+            const senha = document.getElementById('senha').value;
+            const msgErro = document.getElementById('mensagem-erro');
+
+            if (email === USUARIO_VALIDO && senha === SENHA_VALIDA) {
+                localStorage.setItem('safratech_logado', 'sim');
+                window.location.href = 'principal.html';
+            } else {
+                msgErro.classList.remove('oculto');
+            }
+        }
+    </script>
+    <!-- Firebase + App (Versão Moderna) -->
+<script type="module" src="js/config/firebase-config.js"></script>
+<script type="module" src="js/app.js"></script>
 </body>
 </html>

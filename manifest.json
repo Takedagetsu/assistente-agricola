@@ -1,19 +1,19 @@
 {
-  "name": "AgroManejo — Gestão de Visitas Técnicas",
-  "short_name": "AgroManejo",
-  "description": "Sistema de gestão de visitas técnicas de campo para agronomia",
+  "name": "Safra Tech — Monitoramento e Gestão Tática Agrícola",
+  "short_name": "Safra Tech",
+  "description": "Sistema tático de gestão de campo, monitoramento de safra e visitas técnicas.",
   "start_url": "login.html",
   "display": "standalone",
-  "background_color": "#050714",
-  "theme_color": "#00e5ff",
+  "background_color": "#080c0f",
+  "theme_color": "#00ff88",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/2913/2913520.png",
+      "src": "img/logo-safratech.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/2913/2913520.png",
+      "src": "img/logo-safratech.png",
       "sizes": "512x512",
       "type": "image/png"
     }
